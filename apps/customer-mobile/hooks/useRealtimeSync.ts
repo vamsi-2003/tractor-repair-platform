@@ -33,6 +33,8 @@ export function useRealtimeSync({
   const onJobChangeRef = useRef(onJobChange);
   const onQuoteChangeRef = useRef(onQuoteChange);
   const onRequestChangeRef = useRef(onRequestChange);
+  const lastQuoteStatusRef = useRef<string | null>(null);
+  const lastQuoteIdRef = useRef<string | null>(null);
 
   onJobChangeRef.current = onJobChange;
   onQuoteChangeRef.current = onQuoteChange;
@@ -213,20 +215,29 @@ export function useRealtimeSync({
             .maybeSingle();
 
           if (quoteData) {
-            const formattedQuote = {
-              id: quoteData.id,
-              visitFee: Number(quoteData.visit_fee),
-              laborCost: Number(quoteData.labor_cost),
-              partsEstimate: Number(quoteData.parts_estimate),
-              total: Number(quoteData.total),
-              mechanicNotes: quoteData.mechanic_notes || '',
-              status: quoteData.status,
-            };
+            const hasChanged =
+              lastQuoteIdRef.current !== quoteData.id ||
+              lastQuoteStatusRef.current !== quoteData.status;
 
-            if (role === 'customer') {
-              useRepairStore.getState().setQuote(formattedQuote);
+            if (hasChanged) {
+              lastQuoteIdRef.current = quoteData.id;
+              lastQuoteStatusRef.current = quoteData.status;
+
+              const formattedQuote = {
+                id: quoteData.id,
+                visitFee: Number(quoteData.visit_fee),
+                laborCost: Number(quoteData.labor_cost),
+                partsEstimate: Number(quoteData.parts_estimate),
+                total: Number(quoteData.total),
+                mechanicNotes: quoteData.mechanic_notes || '',
+                status: quoteData.status,
+              };
+
+              if (role === 'customer') {
+                useRepairStore.getState().setQuote(formattedQuote);
+              }
+              onQuoteChangeRef.current?.(quoteData);
             }
-            onQuoteChangeRef.current?.(quoteData);
           }
         }
 

@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Linking,
   Platform,
+  BackHandler,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,6 +22,16 @@ import { APP_NAME } from '@tractor-repair/shared';
 export default function QuoteApprovalScreen() {
   const { currentJob, setCurrentJob, setQuote, updateJobStatus } = useRepairStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Trap Android hardware back button so it safely returns to mechanic-assigned
+  useEffect(() => {
+    const onBackPress = () => {
+      router.replace('/customer/request/mechanic-assigned');
+      return true;
+    };
+    const backSub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSub.remove();
+  }, []);
 
   // If quote is already approved or job moved past quote_submitted, exit immediately
   useEffect(() => {

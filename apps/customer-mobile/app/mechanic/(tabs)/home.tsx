@@ -85,16 +85,13 @@ export default function HomeScreen() {
 
     const syncActiveJob = async () => {
       try {
-        let query = supabase
+        if (!mechanic?.id) return;
+
+        const { data: job } = await supabase
           .from('jobs')
           .select('id, request_id, status, customer_id, mechanic_id')
-          .not('status', 'in', '("completed","cancelled")');
-
-        if (mechanic?.id) {
-          query = query.eq('mechanic_id', mechanic.id);
-        }
-
-        const { data: job } = await query
+          .eq('mechanic_id', mechanic.id)
+          .not('status', 'in', '("completed","cancelled")')
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();

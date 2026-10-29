@@ -41,10 +41,9 @@ export default function RootLayout() {
     }
 
     const rootSegment = segments[0];
-    const isMechanic =
-      profile.role === 'mechanic' ||
-      selectedRole === 'mechanic' ||
-      session?.user?.phone?.endsWith('9902');
+    const isMechanic = profile?.role
+      ? profile.role === 'mechanic'
+      : (session?.user?.phone?.endsWith('9902') || selectedRole === 'mechanic');
 
     if (isMechanic && rootSegment === 'customer') {
       // Mechanics cannot access customer screens

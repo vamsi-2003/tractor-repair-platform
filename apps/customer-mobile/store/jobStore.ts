@@ -458,6 +458,20 @@ export const useJobStore = create<JobState>((set, get) => ({
       // Check if job already exists or assign atomically
       let currentMechanicId = useAuthStore.getState().mechanic?.id;
       if (!currentMechanicId) {
+        const authUser = useAuthStore.getState().user;
+        if (authUser?.id) {
+          const { data: myMech } = await supabase
+            .from('mechanics')
+            .select('id')
+            .eq('profile_id', authUser.id)
+            .maybeSingle();
+          if (myMech?.id) {
+            currentMechanicId = myMech.id;
+          }
+        }
+      }
+
+      if (!currentMechanicId) {
         const { data: firstMech } = await supabase
           .from('mechanics')
           .select('id')

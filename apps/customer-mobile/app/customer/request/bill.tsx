@@ -7,6 +7,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  BackHandler,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,6 +30,16 @@ export default function BillScreen() {
   } | null>(null);
   const [finishCode, setCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Trap Android hardware back button so it safely returns to mechanic-assigned
+  useEffect(() => {
+    const onBackPress = () => {
+      router.replace('/customer/request/mechanic-assigned');
+      return true;
+    };
+    const backSub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSub.remove();
+  }, []);
 
   // Auto-hydrate job and invoice if refreshed
   useEffect(() => {

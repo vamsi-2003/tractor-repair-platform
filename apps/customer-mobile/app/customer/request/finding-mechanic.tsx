@@ -8,6 +8,7 @@ import {
   Alert,
   Animated,
   Easing,
+  BackHandler,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -333,6 +334,15 @@ export default function FindingMechanicScreen() {
       ]
     );
   };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleCancel();
+      return true;
+    };
+    const backSub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSub.remove();
+  }, [currentRequest?.id]);
 
   const handleRetrySearch = async () => {
     if (!currentRequest?.id) return;

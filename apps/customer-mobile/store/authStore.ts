@@ -215,6 +215,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       balance: null,
       skills: [],
       documents: [],
+      selectedRole: null,
       verification: {
         mobileVerified: false,
         idUploaded: false,

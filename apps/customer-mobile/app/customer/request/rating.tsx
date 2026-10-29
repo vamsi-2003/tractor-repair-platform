@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
   Image,
+  BackHandler,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,6 +34,17 @@ export default function RatingScreen() {
   const [selectedTags, setSelectedTags] = useState<string[]>(['fixed_properly']);
   const [comment, setComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Trap Android hardware back button so it safely returns to Customer Home
+  useEffect(() => {
+    const onBackPress = () => {
+      resetRepair();
+      router.replace('/customer/(tabs)/home');
+      return true;
+    };
+    const backSub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSub.remove();
+  }, []);
 
   const mechanic = currentJob?.mechanic;
 

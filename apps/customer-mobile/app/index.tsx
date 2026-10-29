@@ -24,12 +24,12 @@ export default function Index() {
     return <Redirect href="/language" />;
   }
 
-  // If mechanic role
-  const isMechanic =
-    profile?.role === 'mechanic' ||
-    selectedRole === 'mechanic' ||
-    Boolean(user?.phone && user.phone.endsWith('9902')) ||
-    Boolean(user?.email && user.email.includes('mechanic'));
+  // If mechanic role: strictly evaluate profile.role as primary truth
+  const isMechanic = profile?.role
+    ? profile.role === 'mechanic'
+    : (Boolean(user?.phone && user.phone.endsWith('9902')) ||
+       Boolean(user?.email && user.email.includes('mechanic')) ||
+       selectedRole === 'mechanic');
 
   if (isMechanic) {
     return <Redirect href="/mechanic/(tabs)/home" />;
