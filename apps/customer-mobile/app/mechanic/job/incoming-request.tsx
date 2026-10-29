@@ -10,6 +10,7 @@ import {
   Modal,
   Dimensions,
   ActivityIndicator,
+  BackHandler,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +28,17 @@ export default function IncomingRequestScreen() {
   const [voicePositionSec, setVoicePositionSec] = useState(0);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isAccepting, setIsAccepting] = useState(false);
+
+  // Handle hardware back safely
+  useEffect(() => {
+    const onBackPress = () => {
+      declineIncomingRequest();
+      router.replace('/mechanic/(tabs)/home');
+      return true;
+    };
+    const backSub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSub.remove();
+  }, []);
 
   // If request expires or is null, exit
   useEffect(() => {

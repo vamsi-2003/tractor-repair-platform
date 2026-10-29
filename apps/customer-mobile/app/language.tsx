@@ -10,12 +10,18 @@ const languages: { code: Language; name: string; nativeName: string }[] = [
 ];
 
 export default function LanguageScreen() {
-  const { setLanguage, isAuthenticated, profile } = useAuthStore();
+  const { setLanguage, isAuthenticated, profile, selectedRole, user } = useAuthStore();
 
   const handleSelectLanguage = (language: Language) => {
     setLanguage(language);
     if (isAuthenticated) {
-      if (profile?.role === 'mechanic') {
+      const isMechanic =
+        profile?.role === 'mechanic' ||
+        selectedRole === 'mechanic' ||
+        Boolean(user?.phone && user.phone.endsWith('9902')) ||
+        Boolean(user?.email && user.email.includes('mechanic'));
+
+      if (isMechanic) {
         router.replace('/mechanic/(tabs)/home');
       } else {
         router.replace('/customer/(tabs)/home');

@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Modal,
+  BackHandler,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,14 +31,52 @@ export default function ActiveJobScreen() {
     startRepair,
   } = useJobStore();
 
+  // Safely trap Android hardware back button so it never jumps to customer app
+  useEffect(() => {
+    const onBackPress = () => {
+      router.replace('/mechanic/(tabs)/home');
+      return true;
+    };
+    const backSubscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSubscription.remove();
+  }, []);
+
   const [enteredStartCode, setEnteredStartCode] = useState('');
   const [isVerifyingCode, setIsVerifyingCode] = useState(false);
 
+  // Safe defaults
+  const quote = activeJob?.quote || {
+    visitFee: 200,
+    laborCost: 0,
+    partsEstimate: 0,
+    total: 200,
+    mechanicNotes: '',
+    status: 'pending',
+  };
+  const customer = activeJob?.customer || {
+    id: '',
+    name: 'Farmer (Customer)',
+    phone: '',
+    address: 'Field Location',
+    landmark: '',
+    latitude: 0,
+    longitude: 0,
+  };
+  const tractor = activeJob?.tractor || {
+    make: 'Tractor',
+    model: '',
+    year: undefined,
+  };
+  const problem = activeJob?.problem || {
+    categoryName: 'Tractor Issue',
+    description: '',
+  };
+
   // Quote form state
-  const [visitFee, setVisitFee] = useState(activeJob?.quote?.visitFee ? activeJob.quote.visitFee.toString() : '200');
-  const [laborCost, setLaborCost] = useState(activeJob?.quote?.laborCost ? activeJob.quote.laborCost.toString() : '');
-  const [partsEstimate, setPartsEstimate] = useState(activeJob?.quote?.partsEstimate ? activeJob.quote.partsEstimate.toString() : '');
-  const [mechanicNotes, setMechanicNotes] = useState(activeJob?.quote?.mechanicNotes || '');
+  const [visitFee, setVisitFee] = useState(quote.visitFee ? quote.visitFee.toString() : '200');
+  const [laborCost, setLaborCost] = useState(quote.laborCost ? quote.laborCost.toString() : '');
+  const [partsEstimate, setPartsEstimate] = useState(quote.partsEstimate ? quote.partsEstimate.toString() : '');
+  const [mechanicNotes, setMechanicNotes] = useState(quote.mechanicNotes || '');
   const [isSubmittingQuote, setIsSubmittingQuote] = useState(false);
   const [isCollectingVisitFee, setIsCollectingVisitFee] = useState(false);
 
@@ -178,39 +217,43 @@ export default function ActiveJobScreen() {
 
   // Sync customer quote approval / decline in real-time
   useEffect(() => {
-    if (!activeJob?.id) return;
+    if (!activeJob?.id || activeJob.id.startsWith('job-')) return;
 
     const interval = setInterval(async () => {
-      const { data: jobData } = await supabase
-        .from('jobs')
-        .select('status')
-        .eq('id', activeJob.id)
-        .maybeSingle();
+      try {
+        const { data: jobData } = await supabase
+          .from('jobs')
+          .select('status')
+          .eq('id', activeJob.id)
+          .maybeSingle();
 
-      const { data: q } = await supabase
-        .from('quotes')
-        .select('status')
-        .eq('job_id', activeJob.id)
-        .maybeSingle();
+        const { data: q } = await supabase
+          .from('quotes')
+          .select('status')
+          .eq('job_id', activeJob.id)
+          .maybeSingle();
 
-      if (jobData?.status === 'quote_declined' || q?.status === 'rejected') {
-        setActiveJob({
-          ...activeJob,
-          status: 'quote_declined',
-          quote: {
-            ...activeJob.quote,
-            status: 'rejected',
-          },
-        });
-      } else if (jobData?.status === 'quote_approved' || q?.status === 'approved') {
-        setActiveJob({
-          ...activeJob,
-          status: 'quote_approved',
-          quote: {
-            ...activeJob.quote,
-            status: 'approved',
-          },
-        });
+        if (jobData?.status === 'quote_declined' || q?.status === 'rejected') {
+          setActiveJob({
+            ...activeJob,
+            status: 'quote_declined',
+            quote: {
+              ...(activeJob.quote || quote),
+              status: 'rejected',
+            },
+          });
+        } else if (jobData?.status === 'quote_approved' || q?.status === 'approved') {
+          setActiveJob({
+            ...activeJob,
+            status: 'quote_approved',
+            quote: {
+              ...(activeJob.quote || quote),
+              status: 'approved',
+            },
+          });
+        }
+      } catch (err) {
+        console.warn('Notice syncing quote status:', err);
       }
     }, 2000);
 
@@ -220,8 +263,8 @@ export default function ActiveJobScreen() {
   if (!activeJob) {
     return (
       <View style={styles.emptyContainer}>
-        <Ionicons name="alert-circle-outline" size={48} color="#FF9800" />
-        <Text style={styles.emptyTitle}>No Active Job Found</Text>
+        <ActivityIndicator size="large" color="#1E3A5F" />
+        <Text style={[styles.emptyTitle, { marginTop: 16 }]}>Loading active job details...</Text>
         <TouchableOpacity
           style={styles.backHomeBtn}
           onPress={() => router.replace('/mechanic/(tabs)/home')}
@@ -233,8 +276,8 @@ export default function ActiveJobScreen() {
   }
 
   const handleCallCustomer = () => {
-    if (activeJob.customer.phone) {
-      Linking.openURL(`tel:${activeJob.customer.phone}`);
+    if (customer.phone) {
+      Linking.openURL(`tel:${customer.phone}`);
     } else {
       Alert.alert('Phone', 'Customer phone number not available.');
     }
@@ -375,7 +418,7 @@ export default function ActiveJobScreen() {
             <View
               style={[
                 styles.stepChip,
-                activeJob.quote.status === 'approved' && styles.stepChipDone,
+                quote.status === 'approved' && styles.stepChipDone,
               ]}
             >
               <Text style={styles.stepChipText}>3. Quote</Text>
@@ -546,7 +589,7 @@ export default function ActiveJobScreen() {
                     keyboardType="number-pad"
                     value={visitFee}
                     onChangeText={setVisitFee}
-                    editable={activeJob.quote.status !== 'approved'}
+                    editable={quote.status !== 'approved'}
                   />
                 </View>
 
@@ -558,7 +601,7 @@ export default function ActiveJobScreen() {
                     placeholder="e.g. 600"
                     value={laborCost}
                     onChangeText={setLaborCost}
-                    editable={activeJob.quote.status !== 'approved'}
+                    editable={quote.status !== 'approved'}
                   />
                 </View>
 
@@ -570,7 +613,7 @@ export default function ActiveJobScreen() {
                     placeholder="e.g. 400"
                     value={partsEstimate}
                     onChangeText={setPartsEstimate}
-                    editable={activeJob.quote.status !== 'approved'}
+                    editable={quote.status !== 'approved'}
                   />
                 </View>
 
@@ -582,7 +625,7 @@ export default function ActiveJobScreen() {
                     placeholder="What was diagnosed and needs fixing..."
                     value={mechanicNotes}
                     onChangeText={setMechanicNotes}
-                    editable={activeJob.quote.status !== 'approved'}
+                    editable={quote.status !== 'approved'}
                   />
                 </View>
 
@@ -591,7 +634,7 @@ export default function ActiveJobScreen() {
                   <Text style={styles.totalValue}>{formatCurrency(calculatedQuoteTotal)}</Text>
                 </View>
 
-                {activeJob.quote.status === 'submitted' && (
+                {quote.status === 'submitted' && (
                   <View style={styles.quoteWaitingCard}>
                     <ActivityIndicator color="#E65100" size="small" />
                     <View style={{ flex: 1 }}>
@@ -603,19 +646,19 @@ export default function ActiveJobScreen() {
                   </View>
                 )}
 
-                {activeJob.quote.status === 'approved' && (
+                {quote.status === 'approved' && (
                   <View style={styles.quoteApprovedCard}>
                     <Ionicons name="checkmark-circle" size={24} color="#00C853" />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.quoteApprovedTitle}>Quote Approved by Farmer ✓</Text>
                       <Text style={styles.quoteApprovedSub}>
-                        Approved Amount: {formatCurrency(activeJob.quote.total)}
+                        Approved Amount: {formatCurrency(quote.total || calculatedQuoteTotal)}
                       </Text>
                     </View>
                   </View>
                 )}
 
-                {activeJob.quote.status === 'pending' && (
+                {quote.status === 'pending' && (
                   <TouchableOpacity
                     style={[styles.sendQuoteBtn, isSubmittingQuote && styles.btnDisabled]}
                     onPress={handleSendQuote}
@@ -637,7 +680,7 @@ export default function ActiveJobScreen() {
         )}
 
         {/* 6. Start Repair & Proceed to Finish Job */}
-        {activeJob.quote.status === 'approved' && (
+        {quote.status === 'approved' && (
           <View style={styles.card}>
             <View style={styles.cardHeader}>
               <Ionicons name="hammer" size={20} color="#1E3A5F" />

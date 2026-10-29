@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  BackHandler,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +24,16 @@ import { formatCurrency } from '@tractor-repair/shared';
 
 export default function HomeScreen() {
   const { profile, mechanic, isOnline, setIsOnline, serviceRadiusKm, setMechanic } = useAuthStore();
+
+  // Prevent Android back button from popping back to customer stack
+  useEffect(() => {
+    const onBackPress = () => {
+      BackHandler.exitApp();
+      return true;
+    };
+    const backSub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSub.remove();
+  }, []);
   const {
     todayEarnings,
     todayJobsCount,

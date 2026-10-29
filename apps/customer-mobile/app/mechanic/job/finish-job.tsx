@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
+  BackHandler,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,6 +27,15 @@ export default function FinishJobScreen() {
     verifyFinishCode,
     completeJob,
   } = useJobStore();
+
+  useEffect(() => {
+    const onBackPress = () => {
+      router.replace('/mechanic/job/active-job');
+      return true;
+    };
+    const backSub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSub.remove();
+  }, []);
 
   // Add spare part modal state
   const [isAddPartModal, setIsAddPartModal] = useState(false);
@@ -53,9 +63,9 @@ export default function FinishJobScreen() {
     );
   }
 
-  const visitCharge = activeJob.quote.visitFee ?? 0;
-  const laborCharge = activeJob.quote.laborCost ?? 0;
-  const partsSubtotal = activeJob.spareParts.reduce((acc, p) => acc + p.total, 0);
+  const visitCharge = activeJob?.quote?.visitFee ?? 0;
+  const laborCharge = activeJob?.quote?.laborCost ?? 0;
+  const partsSubtotal = (activeJob?.spareParts || []).reduce((acc, p) => acc + p.total, 0);
   const grandTotal = visitCharge + laborCharge + partsSubtotal;
   const platformFee = Math.round(grandTotal * 0.1);
   const mechanicNet = grandTotal - platformFee;

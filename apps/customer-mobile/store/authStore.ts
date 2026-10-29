@@ -81,7 +81,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       session,
       user: session?.user ?? null,
       isAuthenticated: !!session,
-      isLoading: false,
+      isLoading: session ? state.isLoading : false,
       verification: {
         ...state.verification,
         mobileVerified: !!session?.user?.phone,
