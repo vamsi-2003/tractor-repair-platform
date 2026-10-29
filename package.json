@@ -12,6 +12,7 @@
     "dev:mobile": "pnpm --filter customer-mobile start",
     "dev:admin": "pnpm --filter admin-web dev",
     "dev:customer": "pnpm --filter customer-mobile start",
+    "get-apk": "pnpm --filter customer-mobile get-apk",
     "build": "turbo build",
     "build:admin": "pnpm --filter admin-web build",
     "lint": "turbo lint",
