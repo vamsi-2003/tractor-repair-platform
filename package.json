@@ -3,6 +3,10 @@
   "private": true,
   "version": "0.1.0",
   "description": "Tractor Repair Marketplace - Connect farmers with verified mechanics",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev:app": "pnpm --filter customer-mobile start",
     "dev:mobile": "pnpm --filter customer-mobile start",
