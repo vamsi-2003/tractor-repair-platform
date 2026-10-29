@@ -1,0 +1,60 @@
+{
+  "expo": {
+    "name": "AppName",
+    "slug": "tractor-repair",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "tractor-repair",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#2E7D32"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.tractorrepair.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "We need your location to find nearby tractor repair requests and navigate to tractor locations.",
+        "NSCameraUsageDescription": "Take photos of your tractor problem or verification ID documents.",
+        "NSMicrophoneUsageDescription": "Record a voice description of your tractor problem.",
+        "NSPhotoLibraryUsageDescription": "Upload photos of tractor problems or ID documents."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#2E7D32"
+      },
+      "package": "com.tractorrepair.app",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "RECORD_AUDIO",
+        "READ_EXTERNAL_STORAGE",
+        "POST_NOTIFICATIONS"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-location",
+      "expo-camera",
+      "expo-image-picker",
+      "expo-notifications",
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow AppName to record voice descriptions of your tractor problem."
+        }
+      ]
+    ],
+    "extra": {
+      "router": {
+        "origin": false
+      }
+    }
+  }
+}

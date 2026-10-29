@@ -1,0 +1,28 @@
+{
+  "name": "tractor-repair",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Tractor Repair Marketplace - Connect farmers with verified mechanics",
+  "scripts": {
+    "dev:app": "pnpm --filter customer-mobile start",
+    "dev:mobile": "pnpm --filter customer-mobile start",
+    "dev:admin": "pnpm --filter admin-web dev",
+    "dev:customer": "pnpm --filter customer-mobile start",
+    "build": "turbo build",
+    "build:admin": "pnpm --filter admin-web build",
+    "lint": "turbo lint",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "turbo test",
+    "clean": "turbo clean",
+    "db:migrate": "supabase db push",
+    "db:reset": "supabase db reset",
+    "db:test": "supabase test db",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:functions": "supabase functions serve"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}
