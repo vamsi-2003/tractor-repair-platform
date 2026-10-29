@@ -43,6 +43,9 @@ apps/customer-mobile/android/
 apps/customer-mobile/ios/
 apps/mechanic-mobile/android/
 apps/mechanic-mobile/ios/
+builds/
+*.apk
+*.aab
 
 # Coverage
 coverage/
