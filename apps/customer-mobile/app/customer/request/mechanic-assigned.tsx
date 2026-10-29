@@ -21,7 +21,7 @@ import { SpeechSpeaker } from '../../../components/SpeechSpeaker';
 import { APP_NAME } from '@tractor-repair/shared';
 
 export default function MechanicAssignedScreen() {
-  const { currentJob, currentRequest, setCurrentJob, setQuote, updateJobStatus } = useRepairStore();
+  const { currentJob, currentRequest, setCurrentJob, setQuote, setFinishCode, updateJobStatus } = useRepairStore();
   const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
@@ -41,7 +41,8 @@ export default function MechanicAssignedScreen() {
           .eq('job_id', updatedJob.id)
           .maybeSingle();
 
-        if (quote) {
+        // ONLY navigate if quote is still pending approval!
+        if (quote && quote.status === 'pending') {
           setQuote({
             id: quote.id,
             visitFee: Number(quote.visit_fee),
@@ -53,11 +54,15 @@ export default function MechanicAssignedScreen() {
           });
           router.replace('/customer/request/quote-approval');
         }
+      } else if (updatedJob?.status === 'quote_approved') {
+        updateJobStatus('quote_approved');
       } else if (updatedJob?.status === 'repair_in_progress') {
         updateJobStatus('repair_in_progress');
       } else if (updatedJob?.status === 'bill_ready') {
+        updateJobStatus('bill_ready');
         router.replace('/customer/request/bill');
       } else if (updatedJob?.status === 'completed') {
+        updateJobStatus('completed');
         router.replace('/customer/request/rating');
       }
     },
@@ -72,7 +77,14 @@ export default function MechanicAssignedScreen() {
           mechanicNotes: quoteData.mechanic_notes || '',
           status: quoteData.status,
         });
-        router.replace('/customer/request/quote-approval');
+
+        // ONLY navigate if quote is pending AND job is quote_submitted!
+        if (
+          quoteData.status === 'pending' &&
+          (currentJob?.status === 'quote_submitted' || !currentJob?.status)
+        ) {
+          router.replace('/customer/request/quote-approval');
+        }
       }
     },
   });
@@ -143,6 +155,30 @@ export default function MechanicAssignedScreen() {
 
           const startCode = codeData?.code || '';
 
+          // Fetch finish code
+          let finishCode: string | null = null;
+          const { data: fcData } = await supabase
+            .from('secure_codes')
+            .select('code')
+            .eq('job_id', job.id)
+            .eq('code_type', 'finish')
+            .maybeSingle();
+
+          if (fcData?.code) {
+            finishCode = fcData.code;
+          } else {
+            try {
+              const { data: rpcFinish } = await supabase.rpc('get_or_create_finish_code', {
+                p_job_id: job.id,
+              });
+              if (rpcFinish?.code) {
+                finishCode = rpcFinish.code;
+              }
+            } catch (err) {
+              // Non-blocking
+            }
+          }
+
           // Query genuine match distance if recorded
           let calculatedDist: number | null = null;
           if (job.request_id && job.mechanic_id) {
@@ -184,12 +220,12 @@ export default function MechanicAssignedScreen() {
               longitude: null,
             },
             startCode,
-            finishCode: null,
+            finishCode,
             quote: null,
             invoice: null,
           });
 
-          // If quote already submitted, navigate immediately
+          // If quote already submitted and STILL pending, navigate immediately
           if (job.status === 'quote_submitted') {
             const { data: quote } = await supabase
               .from('quotes')
@@ -197,7 +233,7 @@ export default function MechanicAssignedScreen() {
               .eq('job_id', job.id)
               .maybeSingle();
 
-            if (quote) {
+            if (quote && quote.status === 'pending') {
               setQuote({
                 id: quote.id,
                 visitFee: Number(quote.visit_fee),
@@ -233,7 +269,7 @@ export default function MechanicAssignedScreen() {
           .eq('job_id', currentJob.id)
           .maybeSingle();
 
-        if (quote) {
+        if (quote && quote.status === 'pending') {
           setQuote({
             id: quote.id,
             visitFee: Number(quote.visit_fee),
@@ -245,10 +281,30 @@ export default function MechanicAssignedScreen() {
           });
           router.replace('/customer/request/quote-approval');
         }
+      } else if (j?.status === 'quote_approved') {
+        updateJobStatus('quote_approved');
       } else if (j?.status === 'repair_in_progress') {
         updateJobStatus('repair_in_progress');
       } else if (j?.status === 'bill_ready') {
+        updateJobStatus('bill_ready');
         router.replace('/customer/request/bill');
+      } else if (j?.status === 'completed') {
+        updateJobStatus('completed');
+        router.replace('/customer/request/rating');
+      }
+
+      // Check for finish code if missing
+      if (!currentJob.finishCode) {
+        const { data: fcData } = await supabase
+          .from('secure_codes')
+          .select('code')
+          .eq('job_id', currentJob.id)
+          .eq('code_type', 'finish')
+          .maybeSingle();
+
+        if (fcData?.code) {
+          setFinishCode(fcData.code);
+        }
       }
     };
 
@@ -333,9 +389,17 @@ export default function MechanicAssignedScreen() {
 
   const mechanic = currentJob?.mechanic;
 
-  const speechText = `Mechanic assigned for your repair. ${
-    etaMinutes ? `Arrives in approximately ${etaMinutes} minutes.` : 'Heading to your location.'
-  } Your secure start code is ${currentJob?.startCode || 'not ready'}. Tell the mechanic this code only when they arrive.`;
+  const isRepairing =
+    currentJob?.status === 'quote_approved' || currentJob?.status === 'repair_in_progress';
+  const isBillReady = currentJob?.status === 'bill_ready';
+
+  const speechText = isBillReady
+    ? `Repair completed. Your finish code is ${currentJob?.finishCode || 'available'}. Share this finish code only after verifying repair and paying the mechanic.`
+    : isRepairing
+    ? `Mechanic is currently repairing your tractor. Your finish code is ${currentJob?.finishCode || 'available'}. Keep it ready for when the repair finishes.`
+    : `Mechanic assigned for your repair. ${
+        etaMinutes ? `Arrives in approximately ${etaMinutes} minutes.` : 'Heading to your location.'
+      } Your secure start code is ${currentJob?.startCode || 'not ready'}. Tell the mechanic this code only when they arrive.`;
 
   return (
     <View style={styles.screenWrapper}>
@@ -346,31 +410,94 @@ export default function MechanicAssignedScreen() {
       </View>
 
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-        {/* ETA & Arrival Banner */}
-        <View style={styles.etaCard}>
+        {/* Dynamic Status / ETA Banner */}
+        <View
+          style={[
+            styles.etaCard,
+            isRepairing && styles.etaCardInProgress,
+            isBillReady && styles.etaCardBillReady,
+          ]}
+        >
           <View style={styles.etaHeader}>
-            <Ionicons name="time" size={24} color="#2E7D32" />
-            <Text style={styles.etaTitle}>
-              {etaMinutes ? `ARRIVES IN ~${etaMinutes} MIN` : 'MECHANIC ASSIGNED'}
+            <Ionicons
+              name={isBillReady ? 'receipt' : isRepairing ? 'construct' : 'time'}
+              size={24}
+              color={isBillReady ? '#C63C14' : isRepairing ? '#1565C0' : '#2E7D32'}
+            />
+            <Text
+              style={[
+                styles.etaTitle,
+                isRepairing && styles.etaTitleInProgress,
+                isBillReady && styles.etaTitleBillReady,
+              ]}
+            >
+              {isBillReady
+                ? 'REPAIR COMPLETED · BILL READY'
+                : currentJob?.status === 'repair_in_progress'
+                ? 'REPAIR IN PROGRESS'
+                : currentJob?.status === 'quote_approved'
+                ? 'QUOTE APPROVED · WORK COMMENCING'
+                : etaMinutes
+                ? `ARRIVES IN ~${etaMinutes} MIN`
+                : 'MECHANIC ASSIGNED'}
             </Text>
           </View>
-          <Text style={styles.etaDistance}>
-            {distanceKm
+          <Text
+            style={[
+              styles.etaDistance,
+              isRepairing && styles.etaDistanceInProgress,
+              isBillReady && styles.etaDistanceBillReady,
+            ]}
+          >
+            {isBillReady
+              ? 'Mechanic finished the repair. View final bill and share finish code.'
+              : currentJob?.status === 'repair_in_progress'
+              ? 'Mechanic is on-site repairing your tractor.'
+              : currentJob?.status === 'quote_approved'
+              ? 'Quote approved. Mechanic is starting repair work.'
+              : distanceKm
               ? `Mechanic is approx. ${distanceKm.toFixed(1)} km away`
               : 'Mechanic is heading to your breakdown location'}
           </Text>
         </View>
 
-        {/* Start Code Card (Green Card from Design Page 5) */}
-        <View style={styles.startCodeCard}>
-          <Text style={styles.startCodeLabel}>YOUR SECURE START CODE</Text>
-          <View style={styles.startCodeBox}>
-            <Text style={styles.startCodeText}>{currentJob?.startCode || '------'}</Text>
+        {/* Start Code Card: Shown before repair starts */}
+        {!isRepairing && !isBillReady && (
+          <View style={styles.startCodeCard}>
+            <Text style={styles.startCodeLabel}>YOUR SECURE START CODE</Text>
+            <View style={styles.startCodeBox}>
+              <Text style={styles.startCodeText}>{currentJob?.startCode || '------'}</Text>
+            </View>
+            <Text style={styles.startCodeInstruction}>
+              Tell the mechanic this 6-digit code only when they arrive at your location. Work cannot begin without this code.
+            </Text>
           </View>
-          <Text style={styles.startCodeInstruction}>
-            Tell the mechanic this 6-digit code only when they arrive at your location. Work cannot begin without this code.
-          </Text>
-        </View>
+        )}
+
+        {/* Finish Code Card: Shown when repair is approved, in progress, or bill ready */}
+        {(isRepairing || isBillReady || !!currentJob?.finishCode) && (
+          <View style={styles.finishCodeCard}>
+            <View style={styles.finishBadge}>
+              <Ionicons name="shield-checkmark" size={16} color="#1565C0" />
+              <Text style={styles.finishBadgeText}>STEP 2: COMPLETION & PAYMENT</Text>
+            </View>
+            <Text style={styles.finishCodeLabel}>YOUR SECURE FINISH CODE</Text>
+            <View style={styles.finishCodeBox}>
+              <Text style={styles.finishCodeText}>{currentJob?.finishCode || '------'}</Text>
+            </View>
+            <Text style={styles.finishCodeInstruction}>
+              Share this 6-digit finish code with the mechanic ONLY after they have completed the repair and you have inspected your tractor.
+            </Text>
+
+            <TouchableOpacity
+              style={styles.viewBillCardBtn}
+              onPress={() => router.push('/customer/request/bill')}
+            >
+              <Ionicons name="receipt-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.viewBillCardBtnText}>View Final Itemized Bill</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Mechanic Profile Card */}
         <View style={styles.mechanicCard}>
@@ -419,9 +546,9 @@ export default function MechanicAssignedScreen() {
           </View>
         )}
 
-        {/* Action Buttons: Call & Cancel */}
+        {/* Action Buttons */}
         <View style={styles.actionButtons}>
-          {(currentJob?.status === 'quote_submitted' || !!currentJob?.quote) && (
+          {currentJob?.quote?.status === 'pending' && currentJob?.status === 'quote_submitted' && (
             <TouchableOpacity
               style={styles.reviewQuoteButton}
               onPress={() => router.push('/customer/request/quote-approval')}
@@ -431,14 +558,26 @@ export default function MechanicAssignedScreen() {
             </TouchableOpacity>
           )}
 
+          {(isRepairing || isBillReady) && (
+            <TouchableOpacity
+              style={styles.viewBillActionBtn}
+              onPress={() => router.push('/customer/request/bill')}
+            >
+              <Ionicons name="receipt" size={20} color="#FFFFFF" />
+              <Text style={styles.viewBillActionBtnText}>View Final Bill & Finish Code</Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity style={styles.callButton} onPress={handleCall}>
             <Ionicons name="call" size={20} color="#FFFFFF" />
             <Text style={styles.callButtonText}>Call Mechanic</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.cancelButton} onPress={() => setIsCancelModalOpen(true)}>
-            <Text style={styles.cancelButtonText}>Cancel Request</Text>
-          </TouchableOpacity>
+          {!isRepairing && !isBillReady && (
+            <TouchableOpacity style={styles.cancelButton} onPress={() => setIsCancelModalOpen(true)}>
+              <Text style={styles.cancelButtonText}>Cancel Request</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
 
@@ -534,6 +673,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#C8E6C9',
   },
+  etaCardInProgress: {
+    backgroundColor: '#E3F2FD',
+    borderColor: '#90CAF9',
+  },
+  etaCardBillReady: {
+    backgroundColor: '#FBE9E7',
+    borderColor: '#FFCCBC',
+  },
   etaHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -544,11 +691,23 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#1B5E20',
   },
+  etaTitleInProgress: {
+    color: '#0D47A1',
+  },
+  etaTitleBillReady: {
+    color: '#BF360C',
+  },
   etaDistance: {
     fontSize: 13,
     color: '#2E7D32',
     marginTop: 4,
     fontWeight: '600',
+  },
+  etaDistanceInProgress: {
+    color: '#1565C0',
+  },
+  etaDistanceBillReady: {
+    color: '#D84315',
   },
   startCodeCard: {
     backgroundColor: '#FFFFFF',
@@ -592,6 +751,97 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 18,
+  },
+  finishCodeCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 14,
+    borderWidth: 2,
+    borderColor: '#1565C0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  finishBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  finishBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#1565C0',
+    letterSpacing: 0.5,
+  },
+  finishCodeLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#1565C0',
+    letterSpacing: 1.5,
+    marginBottom: 6,
+  },
+  finishCodeBox: {
+    backgroundColor: '#E3F2FD',
+    paddingVertical: 10,
+    paddingHorizontal: 28,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#90CAF9',
+    marginVertical: 6,
+  },
+  finishCodeText: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#0D47A1',
+    letterSpacing: 8,
+  },
+  finishCodeInstruction: {
+    fontSize: 12,
+    color: '#555',
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  viewBillCardBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#1565C0',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    marginTop: 4,
+    width: '100%',
+  },
+  viewBillCardBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  viewBillActionBtn: {
+    backgroundColor: '#1E3A5F',
+    borderRadius: 14,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  viewBillActionBtnText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   mechanicCard: {
     backgroundColor: '#FFFFFF',

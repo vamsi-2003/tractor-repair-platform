@@ -223,6 +223,205 @@ GRANT EXECUTE ON FUNCTION public.submit_job_quote(UUID, NUMERIC, NUMERIC, TEXT) 
 GRANT EXECUTE ON FUNCTION public.respond_to_quote(UUID, UUID, BOOLEAN) TO authenticated, service_role, anon;
 
 -- -------------------------------------------------------------
+-- 4B. ATOMIC RPC: GET OR CREATE FINISH CODE
+-- -------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.get_or_create_finish_code(
+  p_job_id UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_code RECORD;
+  v_new_code TEXT;
+  v_job RECORD;
+BEGIN
+  SELECT * INTO v_job FROM public.jobs WHERE id = p_job_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Job % not found', p_job_id;
+  END IF;
+
+  SELECT * INTO v_code
+  FROM public.secure_codes
+  WHERE job_id = p_job_id AND code_type = 'finish';
+
+  IF FOUND THEN
+    RETURN jsonb_build_object(
+      'success', true,
+      'code', v_code.code,
+      'is_used', v_code.is_used
+    );
+  END IF;
+
+  v_new_code := (FLOOR(100000 + RANDOM() * 900000))::TEXT;
+
+  INSERT INTO public.secure_codes (
+    job_id,
+    code_type,
+    code,
+    code_hash,
+    expires_at,
+    max_attempts,
+    attempts,
+    is_used
+  ) VALUES (
+    p_job_id,
+    'finish',
+    v_new_code,
+    v_new_code,
+    now() + INTERVAL '24 hours',
+    5,
+    0,
+    false
+  );
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'code', v_new_code,
+    'is_used', false
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_or_create_finish_code(UUID) TO authenticated, service_role, anon;
+
+-- -------------------------------------------------------------
+-- 4C. COMPLETE JOB CASH WITH APP_SETTINGS FEE CALCULATION RPC
+-- -------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.complete_job_cash_server(
+  p_job_id UUID,
+  p_spare_parts_amount NUMERIC DEFAULT 0,
+  p_finish_code TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_job RECORD;
+  v_quote RECORD;
+  v_code RECORD;
+  v_visit_charge NUMERIC := 200;
+  v_platform_percent NUMERIC := 10;
+  v_labor_charge NUMERIC := 0;
+  v_parts_total NUMERIC := COALESCE(p_spare_parts_amount, 0);
+  v_grand_total NUMERIC;
+  v_platform_fee NUMERIC;
+BEGIN
+  SELECT * INTO v_job FROM public.jobs WHERE id = p_job_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Job % not found', p_job_id;
+  END IF;
+
+  -- 1. Verify finish code
+  IF p_finish_code IS NOT NULL AND TRIM(p_finish_code) != '' THEN
+    SELECT * INTO v_code
+    FROM public.secure_codes
+    WHERE job_id = p_job_id AND code_type = 'finish';
+
+    IF FOUND THEN
+      IF TRIM(v_code.code) != TRIM(p_finish_code) THEN
+        RAISE EXCEPTION 'Invalid Finish Code provided';
+      END IF;
+
+      UPDATE public.secure_codes
+      SET is_used = true, used_at = now()
+      WHERE id = v_code.id;
+    END IF;
+  END IF;
+
+  -- 2. Read quote details
+  SELECT * INTO v_quote FROM public.quotes WHERE job_id = p_job_id ORDER BY created_at DESC LIMIT 1;
+  IF FOUND THEN
+    v_visit_charge := COALESCE(v_quote.visit_fee, 200);
+    v_labor_charge := COALESCE(v_quote.labor_cost, 0);
+    IF v_parts_total = 0 AND COALESCE(v_quote.parts_estimate, 0) > 0 THEN
+      v_parts_total := v_quote.parts_estimate;
+    END IF;
+  ELSE
+    SELECT COALESCE(value::numeric, 200) INTO v_visit_charge FROM public.app_settings WHERE key = 'visit_charge_amount';
+  END IF;
+
+  -- 3. Read platform_fee_percent from app_settings
+  SELECT COALESCE(value::numeric, 10) INTO v_platform_percent
+  FROM public.app_settings
+  WHERE key = 'platform_fee_percent';
+
+  -- 4. Calculate total and platform fee server-side
+  v_grand_total := v_visit_charge + v_labor_charge + v_parts_total;
+  v_platform_fee := ROUND(v_grand_total * (v_platform_percent / 100.0), 2);
+
+  -- 5. Upsert Invoice
+  INSERT INTO public.invoices (
+    job_id,
+    quote_id,
+    visit_charge,
+    repair_amount,
+    parts_amount,
+    subtotal,
+    platform_fee,
+    total,
+    status
+  ) VALUES (
+    p_job_id,
+    v_quote.id,
+    v_visit_charge,
+    v_labor_charge,
+    v_parts_total,
+    v_grand_total,
+    v_platform_fee,
+    v_grand_total,
+    'paid'
+  )
+  ON CONFLICT (job_id) DO UPDATE SET
+    visit_charge = v_visit_charge,
+    repair_amount = v_labor_charge,
+    parts_amount = v_parts_total,
+    subtotal = v_grand_total,
+    platform_fee = v_platform_fee,
+    total = v_grand_total,
+    status = 'paid',
+    updated_at = now();
+
+  -- 6. Transition job status to completed
+  UPDATE public.jobs
+  SET status = 'completed',
+      completed_at = now(),
+      repair_completed_at = now(),
+      updated_at = now()
+  WHERE id = p_job_id;
+
+  -- 7. Record status history
+  INSERT INTO public.job_status_history (job_id, old_status, new_status, notes)
+  VALUES (p_job_id, v_job.status, 'completed', 'Job marked completed. Total ₹' || v_grand_total || ' collected in cash. Commission ₹' || v_platform_fee);
+
+  -- 8. Record completed cash payment
+  INSERT INTO public.payments (
+    invoice_id,
+    method,
+    amount,
+    platform_fee,
+    status
+  )
+  SELECT id, 'cash', v_grand_total, v_platform_fee, 'completed'
+  FROM public.invoices
+  WHERE job_id = p_job_id;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'status', 'completed',
+    'total', v_grand_total,
+    'platform_fee', v_platform_fee,
+    'mechanic_net', (v_grand_total - v_platform_fee)
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.complete_job_cash_server(UUID, NUMERIC, TEXT) TO authenticated, service_role, anon;
+
+-- -------------------------------------------------------------
 -- 5. RLS POLICIES FOR JOBS AND REPAIR REQUESTS
 -- -------------------------------------------------------------
 DROP POLICY IF EXISTS "Customers can update assigned jobs" ON public.jobs;

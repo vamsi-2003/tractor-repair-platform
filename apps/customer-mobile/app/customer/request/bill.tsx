@@ -82,6 +82,29 @@ export default function BillScreen() {
             partsAmount: Number(invData.parts_amount),
             total: Number(invData.total),
           });
+        } else {
+          // Fallback to quotes row so ₹2,700 bill displays before invoice creation
+          const { data: quoteData } = await supabase
+            .from('quotes')
+            .select('*')
+            .eq('job_id', targetJobId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (quoteData && isMounted) {
+            const vFee = Number(quoteData.visit_fee || 200);
+            const lCost = Number(quoteData.labor_cost || 0);
+            const pCost = Number(quoteData.parts_estimate || 0);
+            const tot = Number(quoteData.total || (vFee + lCost + pCost));
+            setInvoice({
+              id: quoteData.id,
+              visitCharge: vFee,
+              repairAmount: lCost,
+              partsAmount: pCost,
+              total: tot,
+            });
+          }
         }
 
         // Fetch secure finish code
@@ -96,17 +119,17 @@ export default function BillScreen() {
           setCode(codeData.code);
           setFinishCode(codeData.code);
         } else {
-          // If edge function available, fallback to get-customer-code
+          // Call atomic RPC get_or_create_finish_code
           try {
-            const { data: codeResp } = await supabase.functions.invoke('get-customer-code', {
-              body: { jobId: targetJobId, codeType: 'finish' },
+            const { data: rpcResp } = await supabase.rpc('get_or_create_finish_code', {
+              p_job_id: targetJobId,
             });
-            if (codeResp?.code && isMounted) {
-              setCode(codeResp.code);
-              setFinishCode(codeResp.code);
+            if (rpcResp?.code && isMounted) {
+              setCode(rpcResp.code);
+              setFinishCode(rpcResp.code);
             }
           } catch (e) {
-            console.warn('Code invoke notice:', e);
+            console.warn('Finish code RPC notice:', e);
           }
         }
       } catch (err: any) {

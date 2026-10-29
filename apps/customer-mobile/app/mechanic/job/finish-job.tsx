@@ -48,6 +48,21 @@ export default function FinishJobScreen() {
   const [isVerifyingFinishCode, setIsVerifyingFinishCode] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
 
+  // Auto-seed spare parts from approved quote if no itemized parts were added
+  useEffect(() => {
+    if (
+      activeJob &&
+      activeJob.spareParts.length === 0 &&
+      (activeJob.quote?.partsEstimate || 0) > 0
+    ) {
+      addSparePart(
+        'Replaced Spare Parts (as quoted & approved)',
+        1,
+        Number(activeJob.quote.partsEstimate)
+      );
+    }
+  }, [activeJob?.id]);
+
   if (!activeJob) {
     return (
       <View style={styles.emptyContainer}>
@@ -63,9 +78,10 @@ export default function FinishJobScreen() {
     );
   }
 
-  const visitCharge = activeJob?.quote?.visitFee ?? 0;
+  const visitCharge = activeJob?.quote?.visitFee ?? 200;
   const laborCharge = activeJob?.quote?.laborCost ?? 0;
-  const partsSubtotal = (activeJob?.spareParts || []).reduce((acc, p) => acc + p.total, 0);
+  const rawParts = (activeJob?.spareParts || []).reduce((acc, p) => acc + p.total, 0);
+  const partsSubtotal = rawParts > 0 ? rawParts : (activeJob?.quote?.partsEstimate ?? 0);
   const grandTotal = visitCharge + laborCharge + partsSubtotal;
   const platformFee = Math.round(grandTotal * 0.1);
   const mechanicNet = grandTotal - platformFee;

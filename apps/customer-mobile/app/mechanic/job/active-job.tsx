@@ -449,6 +449,51 @@ export default function ActiveJobScreen() {
     }
   };
 
+  const [isFinishing, setIsFinishing] = useState(false);
+
+  const handleProceedToFinish = async () => {
+    if (!activeJob?.id) return;
+    setIsFinishing(true);
+    try {
+      // 1. Advance job status in Supabase so customer app transitions to bill screen
+      await supabase
+        .from('jobs')
+        .update({
+          status: 'bill_ready',
+          repair_completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', activeJob.id);
+
+      // 2. Ensure 6-digit finish code is generated in secure_codes table
+      let finishCode = activeJob.finishCode;
+      try {
+        const { data: fcRes } = await supabase.rpc('get_or_create_finish_code', {
+          p_job_id: activeJob.id,
+        });
+        if (fcRes?.code) {
+          finishCode = fcRes.code;
+        }
+      } catch (fcErr) {
+        console.warn('RPC finish code notice:', fcErr);
+      }
+
+      // 3. Update store
+      setActiveJob({
+        ...activeJob,
+        status: 'bill_ready',
+        finishCode: finishCode || activeJob.finishCode,
+      });
+
+      router.push('/mechanic/job/finish-job');
+    } catch (err: any) {
+      console.warn('Error transitioning to finish job:', err);
+      router.push('/mechanic/job/finish-job');
+    } finally {
+      setIsFinishing(false);
+    }
+  };
+
   const calculatedQuoteTotal =
     (parseFloat(visitFee) || 200) + (parseFloat(laborCost) || 0) + (parseFloat(partsEstimate) || 0);
 
@@ -761,13 +806,20 @@ export default function ActiveJobScreen() {
                 </Text>
 
                 <TouchableOpacity
-                  style={styles.finishRepairBtn}
-                  onPress={() => router.push('/mechanic/job/finish-job')}
+                  style={[styles.finishRepairBtn, isFinishing && styles.btnDisabled]}
+                  onPress={handleProceedToFinish}
+                  disabled={isFinishing}
                 >
-                  <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-                  <Text style={styles.finishRepairBtnText}>
-                    Finish Job & Collect Payment
-                  </Text>
+                  {isFinishing ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                      <Text style={styles.finishRepairBtnText}>
+                        Finish Job & Collect Payment
+                      </Text>
+                    </>
+                  )}
                 </TouchableOpacity>
               </View>
             )}

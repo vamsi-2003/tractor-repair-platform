@@ -994,8 +994,9 @@ export const useJobStore = create<JobState>((set, get) => ({
     const { activeJob, todayEarnings, todayJobsCount, platformFeeBalance, completedJobs, feeLedger } = get();
     if (!activeJob) return false;
 
-    const partsTotal = activeJob.spareParts.reduce((acc, p) => acc + p.total, 0);
-    const visitFee = activeJob.quote.visitFee || 0;
+    const rawPartsTotal = activeJob.spareParts.reduce((acc, p) => acc + p.total, 0);
+    const partsTotal = rawPartsTotal > 0 ? rawPartsTotal : (activeJob.quote.partsEstimate || 0);
+    const visitFee = activeJob.quote.visitFee || 200;
     const laborCost = activeJob.quote.laborCost || 0;
     const subtotal = visitFee + laborCost + partsTotal;
     const platformFee = Math.round(subtotal * 0.1);

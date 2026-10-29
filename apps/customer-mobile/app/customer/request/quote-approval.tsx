@@ -22,13 +22,31 @@ export default function QuoteApprovalScreen() {
   const { currentJob, setCurrentJob, setQuote, updateJobStatus } = useRepairStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // If quote is already approved or job moved past quote_submitted, exit immediately
+  useEffect(() => {
+    if (
+      currentJob?.quote?.status === 'approved' ||
+      currentJob?.status === 'quote_approved' ||
+      currentJob?.status === 'repair_in_progress' ||
+      currentJob?.status === 'bill_ready' ||
+      currentJob?.status === 'completed'
+    ) {
+      router.replace('/customer/request/mechanic-assigned');
+    }
+  }, [currentJob?.quote?.status, currentJob?.status]);
+
   // Realtime subscription: if job advances (e.g. mechanic begins repair), update customer state
   useRealtimeSync({
     jobId: currentJob?.id,
     role: 'customer',
     onJobChange: (updatedJob) => {
-      if (updatedJob?.status === 'repair_in_progress') {
-        updateJobStatus('repair_in_progress');
+      if (
+        updatedJob?.status === 'quote_approved' ||
+        updatedJob?.status === 'repair_in_progress' ||
+        updatedJob?.status === 'bill_ready' ||
+        updatedJob?.status === 'completed'
+      ) {
+        updateJobStatus(updatedJob.status);
         router.replace('/customer/request/mechanic-assigned');
       }
     },
@@ -137,6 +155,11 @@ export default function QuoteApprovalScreen() {
           if (loadedQuote) {
             setQuote(loadedQuote);
           }
+
+          if (loadedQuote?.status === 'approved' || job.status !== 'quote_submitted') {
+            router.replace('/customer/request/mechanic-assigned');
+            return;
+          }
         }
       })();
     }
@@ -190,6 +213,12 @@ export default function QuoteApprovalScreen() {
         // Non-blocking
       }
 
+      if (quote) {
+        setQuote({
+          ...quote,
+          status: 'approved',
+        });
+      }
       updateJobStatus('quote_approved');
 
       if (Platform.OS === 'web') {
