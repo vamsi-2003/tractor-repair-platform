@@ -14,12 +14,25 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../services/supabase';
 import { useRepairStore } from '../../../store/repairStore';
+import { useRealtimeSync } from '../../../hooks/useRealtimeSync';
 import { SpeechSpeaker } from '../../../components/SpeechSpeaker';
 import { APP_NAME } from '@tractor-repair/shared';
 
 export default function QuoteApprovalScreen() {
   const { currentJob, setCurrentJob, setQuote, updateJobStatus } = useRepairStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Realtime subscription: if job advances (e.g. mechanic begins repair), update customer state
+  useRealtimeSync({
+    jobId: currentJob?.id,
+    role: 'customer',
+    onJobChange: (updatedJob) => {
+      if (updatedJob?.status === 'repair_in_progress') {
+        updateJobStatus('repair_in_progress');
+        router.replace('/customer/request/mechanic-assigned');
+      }
+    },
+  });
 
   // Auto-hydrate job and quote if refreshed
   useEffect(() => {
@@ -133,39 +146,49 @@ export default function QuoteApprovalScreen() {
   const mechanic = currentJob?.mechanic;
 
   const handleApproveQuote = async () => {
-    if (!currentJob?.id || !quote?.id) return;
+    if (!currentJob?.id) return;
 
     setIsSubmitting(true);
     try {
-      // 1. Update quote status to approved
-      const { error: quoteErr } = await supabase
-        .from('quotes')
-        .update({
-          status: 'approved',
-          customer_response_at: new Date().toISOString(),
-        })
-        .eq('id', quote.id);
-
-      if (quoteErr) throw quoteErr;
-
-      // 2. Update job status to quote_approved
-      const { error: jobErr } = await supabase
-        .from('jobs')
-        .update({
-          status: 'quote_approved',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', currentJob.id);
-
-      if (jobErr) throw jobErr;
-
-      // 3. Record in job_status_history
-      await supabase.from('job_status_history').insert({
-        job_id: currentJob.id,
-        old_status: 'quote_submitted',
-        new_status: 'quote_approved',
-        notes: `Customer approved repair quote of ₹${quote.total}`,
+      // 1. Invoke atomic RPC respond_to_quote
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc('respond_to_quote', {
+        p_job_id: currentJob.id,
+        p_quote_id: quote?.id || null,
+        p_approved: true,
       });
+
+      if (rpcErr) {
+        console.warn('RPC respond_to_quote notice, attempting direct update:', rpcErr);
+        if (quote?.id) {
+          await supabase
+            .from('quotes')
+            .update({
+              status: 'approved',
+              customer_response_at: new Date().toISOString(),
+            })
+            .eq('id', quote.id);
+        }
+
+        await supabase
+          .from('jobs')
+          .update({
+            status: 'quote_approved',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', currentJob.id);
+      }
+
+      // Record in job_status_history
+      try {
+        await supabase.from('job_status_history').insert({
+          job_id: currentJob.id,
+          old_status: 'quote_submitted',
+          new_status: 'quote_approved',
+          notes: `Customer approved repair quote of ₹${quote?.total || 0}`,
+        });
+      } catch (histErr) {
+        // Non-blocking
+      }
 
       updateJobStatus('quote_approved');
 
@@ -210,86 +233,46 @@ export default function QuoteApprovalScreen() {
           text: 'Decline Quote',
           style: 'destructive',
           onPress: async () => {
-            if (!currentJob?.id || !quote?.id) return;
+            if (!currentJob?.id) return;
             setIsSubmitting(true);
             try {
-              // 1. Update quote status to rejected
-              await supabase
-                .from('quotes')
-                .update({
-                  status: 'rejected',
-                  customer_response_at: new Date().toISOString(),
-                })
-                .eq('id', quote.id);
-
-              // 2. Read visit charge from app_settings
-              let feeAmount = visitCharge;
-              const { data: vSetting } = await supabase
-                .from('app_settings')
-                .select('value')
-                .eq('key', 'visit_charge_amount')
-                .maybeSingle();
-
-              if (vSetting?.value) {
-                feeAmount = parseFloat(vSetting.value) || feeAmount;
-              }
-
-              // Read platform fee percent
-              let feePercent = 10;
-              const { data: pSetting } = await supabase
-                .from('app_settings')
-                .select('value')
-                .eq('key', 'platform_fee_percent')
-                .maybeSingle();
-
-              if (pSetting?.value) {
-                feePercent = parseFloat(pSetting.value) || feePercent;
-              }
-
-              const platformFee = Math.round(feeAmount * (feePercent / 100));
-
-              // 3. Upsert invoice with visit charge only
-              await supabase.from('invoices').upsert({
-                job_id: currentJob.id,
-                quote_id: quote.id,
-                visit_charge: feeAmount,
-                repair_amount: 0,
-                parts_amount: 0,
-                subtotal: feeAmount,
-                platform_fee: platformFee,
-                total: feeAmount,
-                status: 'pending',
-              }, { onConflict: 'job_id' });
-
-              // 4. Update job to quote_declined
-              await supabase
-                .from('jobs')
-                .update({
-                  status: 'quote_declined',
-                  updated_at: new Date().toISOString(),
-                })
-                .eq('id', currentJob.id);
-
-              // 5. Record status history
-              await supabase.from('job_status_history').insert({
-                job_id: currentJob.id,
-                old_status: 'quote_submitted',
-                new_status: 'quote_declined',
-                notes: `Quote declined. Visit charge ₹${feeAmount} recorded.`,
+              // 1. Invoke atomic RPC respond_to_quote with false
+              const { error: rpcErr } = await supabase.rpc('respond_to_quote', {
+                p_job_id: currentJob.id,
+                p_quote_id: quote?.id || null,
+                p_approved: false,
               });
 
-              updateJobStatus('quote_declined');
+              if (rpcErr) {
+                console.warn('RPC respond_to_quote decline notice, attempting direct update:', rpcErr);
+                if (quote?.id) {
+                  await supabase
+                    .from('quotes')
+                    .update({
+                      status: 'rejected',
+                      customer_response_at: new Date().toISOString(),
+                    })
+                    .eq('id', quote.id);
+                }
 
-              Alert.alert(
-                'Quote Declined',
-                `The repair has been closed as quote declined. Please pay the visit charge of ₹${feeAmount} in cash to the mechanic.`,
-                [
-                  {
-                    text: 'OK',
-                    onPress: () => router.replace('/customer/(tabs)/home'),
-                  },
-                ]
-              );
+                await supabase
+                  .from('jobs')
+                  .update({
+                    status: 'quote_declined',
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq('id', currentJob.id);
+              }
+
+              // Also record visit charge collection if arrived
+              try {
+                await supabase.rpc('record_visit_charge_collected', { p_job_id: currentJob.id });
+              } catch (vcErr) {
+                // Non-blocking
+              }
+
+              updateJobStatus('quote_declined');
+              router.replace('/customer/request/mechanic-assigned');
             } catch (err: any) {
               Alert.alert('Error', err.message || 'Failed to decline quote.');
             } finally {

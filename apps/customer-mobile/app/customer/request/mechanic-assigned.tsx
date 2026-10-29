@@ -16,6 +16,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../services/supabase';
 import { useRepairStore } from '../../../store/repairStore';
+import { useRealtimeSync } from '../../../hooks/useRealtimeSync';
 import { SpeechSpeaker } from '../../../components/SpeechSpeaker';
 import { APP_NAME } from '@tractor-repair/shared';
 
@@ -26,6 +27,55 @@ export default function MechanicAssignedScreen() {
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [isCancelling, setIsCancelling] = useState(false);
+
+  // Realtime subscription for live job & quote updates
+  useRealtimeSync({
+    jobId: currentJob?.id,
+    requestId: currentJob?.requestId || currentRequest?.id,
+    role: 'customer',
+    onJobChange: async (updatedJob) => {
+      if (updatedJob?.status === 'quote_submitted') {
+        const { data: quote } = await supabase
+          .from('quotes')
+          .select('*')
+          .eq('job_id', updatedJob.id)
+          .maybeSingle();
+
+        if (quote) {
+          setQuote({
+            id: quote.id,
+            visitFee: Number(quote.visit_fee),
+            laborCost: Number(quote.labor_cost),
+            partsEstimate: Number(quote.parts_estimate),
+            total: Number(quote.total),
+            mechanicNotes: quote.mechanic_notes || '',
+            status: quote.status,
+          });
+          router.replace('/customer/request/quote-approval');
+        }
+      } else if (updatedJob?.status === 'repair_in_progress') {
+        updateJobStatus('repair_in_progress');
+      } else if (updatedJob?.status === 'bill_ready') {
+        router.replace('/customer/request/bill');
+      } else if (updatedJob?.status === 'completed') {
+        router.replace('/customer/request/rating');
+      }
+    },
+    onQuoteChange: (quoteData) => {
+      if (quoteData) {
+        setQuote({
+          id: quoteData.id,
+          visitFee: Number(quoteData.visit_fee),
+          laborCost: Number(quoteData.labor_cost),
+          partsEstimate: Number(quoteData.parts_estimate),
+          total: Number(quoteData.total),
+          mechanicNotes: quoteData.mechanic_notes || '',
+          status: quoteData.status,
+        });
+        router.replace('/customer/request/quote-approval');
+      }
+    },
+  });
 
   // Auto-hydrate active job if refreshed
   useEffect(() => {

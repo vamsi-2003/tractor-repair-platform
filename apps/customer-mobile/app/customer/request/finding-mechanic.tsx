@@ -13,6 +13,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../services/supabase';
 import { useRepairStore } from '../../../store/repairStore';
+import { useRealtimeSync } from '../../../hooks/useRealtimeSync';
 import { SpeechSpeaker } from '../../../components/SpeechSpeaker';
 import { APP_NAME } from '@tractor-repair/shared';
 
@@ -21,6 +22,27 @@ export default function FindingMechanicScreen() {
   const [dots, setDots] = useState('');
   const [isNoMechanicAvailable, setIsNoMechanicAvailable] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
+
+  // Realtime subscription for instant transition as soon as mechanic accepts
+  useRealtimeSync({
+    requestId: currentRequest?.id,
+    role: 'customer',
+    onRequestChange: (updatedReq) => {
+      if (updatedReq?.status === 'assigned') {
+        fetchJobDetails(updatedReq.id);
+      } else if (
+        updatedReq?.status === 'no_mechanic_available' ||
+        updatedReq?.status === 'no_mechanic_found'
+      ) {
+        setIsNoMechanicAvailable(true);
+      }
+    },
+    onJobChange: (newJob) => {
+      if (newJob?.status === 'assigned') {
+        fetchJobDetails(newJob.request_id || currentRequest?.id);
+      }
+    },
+  });
 
   // Radar Animation
   const pulseAnim1 = useRef(new Animated.Value(1)).current;

@@ -40,12 +40,12 @@ export default function IncomingRequestScreen() {
     return () => backSub.remove();
   }, []);
 
-  // If request expires or is null, exit
+  // If request expires or is null, exit (only if not currently accepting)
   useEffect(() => {
-    if (!incomingRequest) {
+    if (!incomingRequest && !isAccepting) {
       router.replace('/mechanic/(tabs)/home');
     }
-  }, [incomingRequest]);
+  }, [incomingRequest, isAccepting]);
 
   // Audio cleanup on unmount
   useEffect(() => {
@@ -108,13 +108,24 @@ export default function IncomingRequestScreen() {
 
   const handleAccept = async () => {
     setIsAccepting(true);
-    if (sound) {
-      await sound.stopAsync();
-    }
-    const success = await acceptIncomingRequest();
-    setIsAccepting(false);
-    if (success) {
-      router.replace('/mechanic/job/active-job');
+    try {
+      if (sound) {
+        await sound.stopAsync();
+      }
+      const success = await acceptIncomingRequest();
+      if (success) {
+        router.replace('/mechanic/job/active-job');
+      } else {
+        setIsAccepting(false);
+        Alert.alert(
+          'Request Unavailable',
+          'This repair request is no longer available or was taken by another mechanic.',
+          [{ text: 'OK', onPress: () => router.replace('/mechanic/(tabs)/home') }]
+        );
+      }
+    } catch (err: any) {
+      setIsAccepting(false);
+      Alert.alert('Error', err?.message || 'Failed to accept job. Please try again.');
     }
   };
 

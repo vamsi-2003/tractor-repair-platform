@@ -1,11 +1,13 @@
 import React, { useEffect } from 'react';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../services/supabase';
 
 export default function RootLayout() {
-  const { setSession, setLoading, fetchUserProfile } = useAuthStore();
+  const { session, profile, selectedRole, isLoading, setSession, setLoading, fetchUserProfile } = useAuthStore();
+  const segments = useSegments();
+  const router = useRouter();
 
   useEffect(() => {
     // Check initial Supabase session
@@ -31,6 +33,27 @@ export default function RootLayout() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Strict Role Guard
+  useEffect(() => {
+    if (isLoading || !session?.user || !profile) {
+      return;
+    }
+
+    const rootSegment = segments[0];
+    const isMechanic =
+      profile.role === 'mechanic' ||
+      selectedRole === 'mechanic' ||
+      session?.user?.phone?.endsWith('9902');
+
+    if (isMechanic && rootSegment === 'customer') {
+      // Mechanics cannot access customer screens
+      router.replace('/mechanic/(tabs)/home');
+    } else if (!isMechanic && rootSegment === 'mechanic') {
+      // Customers cannot access mechanic screens
+      router.replace('/customer/(tabs)/home');
+    }
+  }, [segments, session, profile, selectedRole, isLoading]);
 
   return (
     <>

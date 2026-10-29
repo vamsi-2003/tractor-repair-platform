@@ -228,6 +228,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (err) {
       console.warn('Sign out warning:', err);
     }
+    try {
+      const { useRepairStore } = require('./repairStore');
+      const { useJobStore } = require('./jobStore');
+      useRepairStore.getState().reset();
+      useJobStore.setState({
+        activeJob: null,
+        incomingRequest: null,
+        completedJobs: [],
+        feeLedger: [],
+        settlements: [],
+      });
+    } catch (e) {
+      // Ignored
+    }
     get().reset();
   },
 }));

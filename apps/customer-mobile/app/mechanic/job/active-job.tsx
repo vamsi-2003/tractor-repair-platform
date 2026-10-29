@@ -19,6 +19,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../services/supabase';
 import { useJobStore } from '../../../store/jobStore';
+import { useRealtimeSync } from '../../../hooks/useRealtimeSync';
 import { formatCurrency, formatPhone } from '@tractor-repair/shared';
 
 export default function ActiveJobScreen() {
@@ -40,6 +41,59 @@ export default function ActiveJobScreen() {
     const backSubscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => backSubscription.remove();
   }, []);
+
+  // Realtime subscription for customer quote approval/decline and status updates
+  useRealtimeSync({
+    jobId: activeJob?.id,
+    role: 'mechanic',
+    onJobChange: (updatedJob) => {
+      if (!activeJob) return;
+      if (updatedJob?.status === 'quote_approved') {
+        setActiveJob({
+          ...activeJob,
+          status: 'quote_approved',
+          quote: {
+            ...(activeJob.quote || quote),
+            status: 'approved',
+          },
+        });
+      } else if (
+        updatedJob?.status === 'quote_declined' ||
+        updatedJob?.status === 'quote_rejected'
+      ) {
+        setActiveJob({
+          ...activeJob,
+          status: 'quote_declined',
+          quote: {
+            ...(activeJob.quote || quote),
+            status: 'rejected',
+          },
+        });
+      }
+    },
+    onQuoteChange: (updatedQuote) => {
+      if (!activeJob) return;
+      if (updatedQuote?.status === 'approved') {
+        setActiveJob({
+          ...activeJob,
+          status: 'quote_approved',
+          quote: {
+            ...(activeJob.quote || quote),
+            status: 'approved',
+          },
+        });
+      } else if (updatedQuote?.status === 'rejected') {
+        setActiveJob({
+          ...activeJob,
+          status: 'quote_declined',
+          quote: {
+            ...(activeJob.quote || quote),
+            status: 'rejected',
+          },
+        });
+      }
+    },
+  });
 
   const [enteredStartCode, setEnteredStartCode] = useState('');
   const [isVerifyingCode, setIsVerifyingCode] = useState(false);
@@ -320,15 +374,19 @@ export default function ActiveJobScreen() {
     }
 
     setIsSubmittingQuote(true);
-    await submitQuote(vFee, lCost, pEst, mechanicNotes);
-    setIsSubmittingQuote(false);
-
-    Alert.alert(
-      'Quote Sent to Customer',
-      `Quote of ${formatCurrency(vFee + lCost + pEst)} has been sent to ${
-        activeJob.customer.name
-      }'s phone for approval.`
-    );
+    try {
+      await submitQuote(vFee, lCost, pEst, mechanicNotes);
+      Alert.alert(
+        'Quote Sent to Customer',
+        `Quote of ${formatCurrency(vFee + lCost + pEst)} has been sent to ${
+          activeJob.customer.name
+        }'s phone for approval.`
+      );
+    } catch (err: any) {
+      Alert.alert('Quote Error', err.message || 'Could not send quote to customer.');
+    } finally {
+      setIsSubmittingQuote(false);
+    }
   };
 
   const handleCollectVisitChargeCash = async () => {

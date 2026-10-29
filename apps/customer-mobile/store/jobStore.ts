@@ -493,9 +493,9 @@ export const useJobStore = create<JobState>((set, get) => ({
         if (rpcRes?.job_id) {
           jobId = rpcRes.job_id;
           startCode = randomCode;
-        } else {
-          console.warn('RPC assign_job_atomic notice:', rpcErr);
-          const { data: newJob } = await supabase
+        } else if (rpcErr) {
+          console.error('RPC assign_job_atomic error:', rpcErr);
+          const { data: newJob, error: insertJobErr } = await supabase
             .from('jobs')
             .insert({
               request_id: incomingRequest.requestId,
@@ -506,7 +506,12 @@ export const useJobStore = create<JobState>((set, get) => ({
             })
             .select('id')
             .maybeSingle();
-          if (newJob?.id) jobId = newJob.id;
+
+          if (insertJobErr) {
+            console.error('Failed fallback job insert:', insertJobErr);
+          } else if (newJob?.id) {
+            jobId = newJob.id;
+          }
         }
       }
 
@@ -557,11 +562,12 @@ export const useJobStore = create<JobState>((set, get) => ({
         }
       }
     } catch (err) {
-      console.warn('Error fetching genuine job data upon acceptance:', err);
+      console.error('Error in acceptIncomingRequest:', err);
     }
 
     if (!jobId) {
-      jobId = `job-${Date.now().toString().slice(-6)}`;
+      console.error('Job could not be created or assigned. Aborting acceptance.');
+      return false;
     }
 
     const activeJob: ActiveJob = {
@@ -723,56 +729,129 @@ export const useJobStore = create<JobState>((set, get) => ({
 
   submitQuote: async (visitFee, laborCost, partsEstimate, notes) => {
     const { activeJob } = get();
-    const total = visitFee + laborCost + partsEstimate;
-    const newQuote: ActiveJobQuote = {
-      id: `quote-${Date.now()}`,
-      visitFee,
-      laborCost,
-      partsEstimate,
-      total,
-      mechanicNotes: notes,
-      status: 'submitted',
-    };
+    if (!activeJob) {
+      const fallbackQuote: ActiveJobQuote = {
+        visitFee,
+        laborCost,
+        partsEstimate,
+        total: visitFee + laborCost + partsEstimate,
+        mechanicNotes: notes,
+        status: 'pending',
+      };
+      return { success: false, quote: fallbackQuote };
+    }
 
-    if (activeJob) {
+    const calculatedTotal = visitFee + laborCost + partsEstimate;
+    let quoteId = activeJob.quote?.id || `quote-${Date.now()}`;
+    let finalVisitFee = visitFee;
+    let finalTotal = calculatedTotal;
+
+    try {
+      // 1. Call atomic RPC submit_job_quote
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('submit_job_quote', {
+        p_job_id: activeJob.id,
+        p_labor_cost: laborCost,
+        p_parts_estimate: partsEstimate,
+        p_notes: notes,
+      });
+
+      if (rpcErr) {
+        console.warn('RPC submit_job_quote error, attempting direct upsert:', rpcErr);
+
+        let mechId = useAuthStore.getState().mechanic?.id;
+        if (!mechId) {
+          const { data: authData } = await supabase.auth.getUser();
+          if (authData?.user) {
+            const { data: m } = await supabase
+              .from('mechanics')
+              .select('id')
+              .eq('profile_id', authData.user.id)
+              .maybeSingle();
+            mechId = m?.id;
+          }
+        }
+
+        const { data: directQuote, error: insertErr } = await supabase
+          .from('quotes')
+          .upsert({
+            job_id: activeJob.id,
+            mechanic_id: mechId,
+            visit_fee: visitFee,
+            labor_cost: laborCost,
+            parts_estimate: partsEstimate,
+            total: calculatedTotal,
+            mechanic_notes: notes,
+            status: 'pending',
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'job_id' })
+          .select('id')
+          .maybeSingle();
+
+        if (insertErr) {
+          console.error('Direct quote upsert error:', insertErr);
+          throw insertErr;
+        }
+
+        if (directQuote?.id) {
+          quoteId = directQuote.id;
+        }
+
+        await supabase.from('jobs').update({
+          status: 'quote_submitted',
+          updated_at: new Date().toISOString(),
+        }).eq('id', activeJob.id);
+      } else if (rpcData) {
+        quoteId = rpcData.quote_id || quoteId;
+        finalVisitFee = Number(rpcData.visit_fee ?? visitFee);
+        finalTotal = Number(rpcData.total ?? calculatedTotal);
+      }
+
+      const updatedQuote: ActiveJobQuote = {
+        id: quoteId,
+        visitFee: finalVisitFee,
+        laborCost,
+        partsEstimate,
+        total: finalTotal,
+        mechanicNotes: notes,
+        status: 'pending',
+      };
+
       set({
         activeJob: {
           ...activeJob,
           status: 'quote_submitted',
-          quote: newQuote,
-          platformFeeLiability: Math.round(total * 0.1),
+          quote: updatedQuote,
+          platformFeeLiability: Math.round(finalTotal * 0.1),
         },
       });
 
-      try {
-        await supabase.from('quotes').insert({
-          job_id: activeJob.id,
-          visit_fee: visitFee,
-          labor_cost: laborCost,
-          parts_estimate: partsEstimate,
-          total,
-          mechanic_notes: notes,
-          status: 'submitted',
-        });
-        await supabase.from('jobs').update({ status: 'quote_submitted' }).eq('id', activeJob.id);
-      } catch (e) {
-        // Fallback
-      }
+      return { success: true, quote: updatedQuote };
+    } catch (e: any) {
+      console.error('Failed to submit quote:', e);
+      throw e;
     }
-
-    return { success: true, quote: newQuote };
   },
 
-
-  startRepair: () => {
+  startRepair: async () => {
     const { activeJob } = get();
     if (!activeJob) return;
+
     set({
       activeJob: {
         ...activeJob,
         status: 'repair_in_progress',
       },
     });
+
+    try {
+      await supabase.from('jobs').update({
+        status: 'repair_in_progress',
+        repair_started_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq('id', activeJob.id);
+    } catch (err) {
+      console.warn('Error updating repair_in_progress on backend:', err);
+    }
   },
 
   addSparePart: (name, quantity, unitPrice) => {
