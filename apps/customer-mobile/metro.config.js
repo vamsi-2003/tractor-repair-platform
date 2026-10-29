@@ -6,8 +6,15 @@ const monorepoRoot = path.resolve(projectRoot, '../..');
 
 const config = getDefaultConfig(projectRoot);
 
-// 1. Watch monorepo root for pnpm symlinks and shared packages
+// 1. Extra node modules alias for self-contained shared code
+config.resolver.extraNodeModules = {
+  ...config.resolver.extraNodeModules,
+  '@tractor-repair/shared': path.resolve(projectRoot, 'shared'),
+};
+
+// 2. Watch monorepo root and shared folder
 config.watchFolders = [
+  path.resolve(projectRoot, 'shared'),
   monorepoRoot,
 ];
 
@@ -17,7 +24,7 @@ config.resolver.blockList = [
   /[\\/]\.git[\\/]/,
 ];
 
-// 2. Let Metro resolve modules from both package node_modules and root node_modules
+// 3. Let Metro resolve modules from both package node_modules and root node_modules
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
   path.resolve(monorepoRoot, 'node_modules'),

@@ -17,7 +17,7 @@
         "./src/*"
       ],
       "@tractor-repair/shared": [
-        "../../packages/shared/src"
+        "./shared"
       ]
     }
   },

@@ -16,7 +16,7 @@
     "@expo/vector-icons": "~14.0.4",
     "@react-navigation/native": "^7.0.0",
     "@supabase/supabase-js": "^2.49.0",
-    "@tractor-repair/shared": "workspace:*",
+    "zod": "^3.23.0",
     "expo": "~52.0.0",
     "expo-av": "~15.0.0",
     "expo-camera": "~16.0.0",
