@@ -295,24 +295,36 @@ export default function ActiveJobScreen() {
           .eq('job_id', activeJob.id)
           .maybeSingle();
 
+        const currentActive = useJobStore.getState().activeJob;
+        if (!currentActive || currentActive.id !== activeJob.id) return;
+
+        // If repair is already started, in progress, or beyond, never revert status backwards
+        if (
+          currentActive.status === 'repair_in_progress' ||
+          currentActive.status === 'bill_ready' ||
+          currentActive.status === 'completed'
+        ) {
+          return;
+        }
+
         if (jobData?.status === 'quote_declined' || (jobData?.status === 'quote_submitted' && q?.status === 'rejected')) {
-          if (activeJob.status === 'quote_submitted') {
+          if (currentActive.status === 'quote_submitted') {
             setActiveJob({
-              ...activeJob,
+              ...currentActive,
               status: 'quote_declined',
               quote: {
-                ...(activeJob.quote || quote),
+                ...(currentActive.quote || quote),
                 status: 'rejected',
               },
             });
           }
         } else if (jobData?.status === 'quote_approved' || (jobData?.status === 'quote_submitted' && q?.status === 'approved')) {
-          if (activeJob.status === 'quote_submitted') {
+          if (currentActive.status === 'quote_submitted') {
             setActiveJob({
-              ...activeJob,
+              ...currentActive,
               status: 'quote_approved',
               quote: {
-                ...(activeJob.quote || quote),
+                ...(currentActive.quote || quote),
                 status: 'approved',
               },
             });

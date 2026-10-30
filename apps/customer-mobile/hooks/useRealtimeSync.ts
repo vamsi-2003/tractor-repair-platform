@@ -166,7 +166,8 @@ export function useRealtimeSync({
           const newReq = payload.new as any;
           if (!newReq || !newReq.status) return;
 
-          if (role === 'customer') {
+          // Do NOT overwrite active job status with repair_request status (which stays 'assigned')
+          if (role === 'customer' && !jobId) {
             useRepairStore.getState().updateJobStatus(newReq.status as JobStatus);
           }
           onRequestChangeRef.current?.(newReq);
@@ -249,7 +250,8 @@ export function useRealtimeSync({
             .maybeSingle();
 
           if (reqData?.status) {
-            if (role === 'customer') {
+            // Do NOT overwrite active job status with repair_request status (which stays 'assigned')
+            if (role === 'customer' && !jobId) {
               useRepairStore.getState().updateJobStatus(reqData.status as JobStatus);
             }
             onRequestChangeRef.current?.(reqData);

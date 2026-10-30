@@ -397,17 +397,25 @@ BEGIN
   INSERT INTO public.job_status_history (job_id, old_status, new_status, notes)
   VALUES (p_job_id, v_job.status, 'completed', 'Job marked completed. Total ₹' || v_grand_total || ' collected in cash. Commission ₹' || v_platform_fee);
 
-  -- 8. Record completed cash payment
+  -- 8. Record completed cash payment (using valid enum value 'captured' for payment_status)
   INSERT INTO public.payments (
     invoice_id,
     method,
     amount,
-    platform_fee,
-    status
+    status,
+    paid_at
   )
-  SELECT id, 'cash', v_grand_total, v_platform_fee, 'completed'
+  SELECT id, 'cash', v_grand_total, 'captured', now()
   FROM public.invoices
   WHERE job_id = p_job_id;
+
+  -- 9. Update repair_requests to completed
+  IF v_job.request_id IS NOT NULL THEN
+    UPDATE public.repair_requests
+    SET status = 'completed',
+        updated_at = now()
+    WHERE id = v_job.request_id;
+  END IF;
 
   RETURN jsonb_build_object(
     'success', true,
@@ -677,4 +685,139 @@ CREATE TRIGGER trg_jobs_ensure_secure_codes
   AFTER INSERT OR UPDATE OF status ON public.jobs
   FOR EACH ROW
   EXECUTE FUNCTION public.ensure_job_secure_codes();
+
+-- -------------------------------------------------------------
+-- 6. ATOMIC JOB ASSIGNMENT FIX (with valid match_status 'notified')
+-- -------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.assign_job_atomic(
+  p_request_id UUID,
+  p_mechanic_id UUID,
+  p_start_code TEXT,
+  p_code_hash TEXT,
+  p_expires_at TIMESTAMPTZ DEFAULT (now() + INTERVAL '30 minutes')
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_request RECORD;
+  v_mechanic RECORD;
+  v_job_id UUID;
+  v_secure_code_id UUID;
+  v_customer_profile_id UUID;
+BEGIN
+  -- 1. Lock the repair request row exclusively to prevent concurrent assignment
+  SELECT * INTO v_request
+  FROM public.repair_requests
+  WHERE id = p_request_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Repair request % not found', p_request_id;
+  END IF;
+
+  IF v_request.status NOT IN ('requested', 'matching') THEN
+    RAISE EXCEPTION 'Job already accepted or unavailable (current status: %)', v_request.status;
+  END IF;
+
+  -- 2. Verify mechanic exists and is approved
+  SELECT * INTO v_mechanic
+  FROM public.mechanics
+  WHERE id = p_mechanic_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Mechanic % not found', p_mechanic_id;
+  END IF;
+
+  IF v_mechanic.status != 'approved' THEN
+    RAISE EXCEPTION 'Mechanic % is not approved', p_mechanic_id;
+  END IF;
+
+  -- Find customer profile for notifications
+  SELECT profile_id INTO v_customer_profile_id
+  FROM public.customers
+  WHERE id = v_request.customer_id;
+
+  -- 3. Update repair request status to assigned
+  UPDATE public.repair_requests
+  SET status = 'assigned',
+      updated_at = now()
+  WHERE id = p_request_id;
+
+  -- 4. Create Job record
+  INSERT INTO public.jobs (
+    request_id,
+    customer_id,
+    mechanic_id,
+    status,
+    assigned_at
+  ) VALUES (
+    p_request_id,
+    v_request.customer_id,
+    p_mechanic_id,
+    'assigned',
+    now()
+  ) RETURNING id INTO v_job_id;
+
+  -- 5. Insert secure start code
+  INSERT INTO public.secure_codes (
+    job_id,
+    code_type,
+    code,
+    code_hash,
+    expires_at,
+    max_attempts,
+    attempts,
+    is_used
+  ) VALUES (
+    v_job_id,
+    'start',
+    p_start_code,
+    p_code_hash,
+    p_expires_at,
+    3,
+    0,
+    false
+  ) RETURNING id INTO v_secure_code_id;
+
+  -- 6. Update matches: accepted for winner, timed_out for other contenders
+  UPDATE public.mechanic_matches
+  SET status = 'accepted',
+      responded_at = now()
+  WHERE request_id = p_request_id AND mechanic_id = p_mechanic_id;
+
+  UPDATE public.mechanic_matches
+  SET status = 'timed_out',
+      responded_at = now()
+  WHERE request_id = p_request_id AND mechanic_id != p_mechanic_id AND status = 'notified';
+
+  -- 7. Record job status history
+  INSERT INTO public.job_status_history (
+    job_id,
+    old_status,
+    new_status,
+    changed_by,
+    notes
+  ) VALUES (
+    v_job_id,
+    v_request.status,
+    'assigned',
+    v_mechanic.profile_id,
+    'Mechanic accepted job assignment'
+  );
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'job_id', v_job_id,
+    'request_id', p_request_id,
+    'mechanic_id', p_mechanic_id,
+    'start_code', p_start_code,
+    'status', 'assigned'
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.assign_job_atomic(UUID, UUID, TEXT, TEXT, TIMESTAMPTZ) TO authenticated, service_role, anon;
+
 

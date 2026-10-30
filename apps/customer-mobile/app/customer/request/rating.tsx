@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Image,
   BackHandler,
+  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -102,19 +103,25 @@ export default function RatingScreen() {
         }
       }
 
-      Alert.alert(
-        'Thank You!',
-        'Your rating and feedback help ensure fair, quality tractor repairs across our network.',
-        [
-          {
-            text: 'Return to Home',
-            onPress: () => {
-              resetRepair();
-              router.replace('/customer/(tabs)/home');
+      if (Platform.OS === 'web') {
+        window.alert('Thank you! Your rating and feedback help ensure fair, quality tractor repairs.');
+        resetRepair();
+        router.replace('/customer/(tabs)/home');
+      } else {
+        Alert.alert(
+          'Thank You!',
+          'Your rating and feedback help ensure fair, quality tractor repairs across our network.',
+          [
+            {
+              text: 'Return to Home',
+              onPress: () => {
+                resetRepair();
+                router.replace('/customer/(tabs)/home');
+              },
             },
-          },
-        ]
-      );
+          ]
+        );
+      }
     } catch (err: any) {
       console.warn('Review submission notice:', err.message);
       resetRepair();

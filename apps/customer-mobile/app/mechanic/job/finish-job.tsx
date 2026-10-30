@@ -84,7 +84,8 @@ export default function FinishJobScreen() {
             };
           });
 
-          if (partsEst > 0 && activeJob.spareParts.length === 0) {
+          const liveParts = useJobStore.getState().activeJob?.spareParts || [];
+          if (partsEst > 0 && liveParts.length === 0) {
             addSparePart(
               'Replaced Spare Parts (as quoted & approved)',
               1,
@@ -235,7 +236,7 @@ export default function FinishJobScreen() {
         <View style={styles.partsSection}>
           <View style={styles.partsHeader}>
             <Text style={styles.partsTitle}>
-              Spare Parts Replaced ({activeJob.spareParts.length})
+              Spare Parts Replaced ({(activeJob.spareParts || []).length})
             </Text>
             <TouchableOpacity
               style={styles.addPartBtn}
@@ -246,10 +247,10 @@ export default function FinishJobScreen() {
             </TouchableOpacity>
           </View>
 
-          {activeJob.spareParts.length === 0 ? (
+          {(activeJob.spareParts || []).length === 0 ? (
             <Text style={styles.noPartsText}>No spare parts added yet.</Text>
           ) : (
-            activeJob.spareParts.map((part) => (
+            (activeJob.spareParts || []).map((part) => (
               <View key={part.id} style={styles.partItemRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.partName}>{part.name}</Text>

@@ -20,7 +20,7 @@ import { APP_NAME } from '@tractor-repair/shared';
 const FEATURE_FLAG_ONLINE_PAYMENT = false;
 
 export default function BillScreen() {
-  const { currentJob, setFinishCode, updateJobStatus } = useRepairStore();
+  const { currentJob, setFinishCode, updateJobStatus, setQuote } = useRepairStore();
   const [invoice, setInvoice] = useState<{
     id: string;
     visitCharge: number;
@@ -62,13 +62,16 @@ export default function BillScreen() {
           .from('jobs')
           .select('id, request_id, status')
           .eq('customer_id', customer.id)
-          .in('status', ['bill_ready', 'repair_completed', 'work_completed', 'payment_pending', 'completed'])
+          .in('status', ['quote_approved', 'repair_in_progress', 'bill_ready', 'repair_completed', 'payment_pending', 'paid', 'completed'])
           .order('assigned_at', { ascending: false })
           .limit(1)
           .maybeSingle();
 
         if (job) {
           targetJobId = job.id;
+          if (!currentJob?.id) {
+            updateJobStatus(job.status as any);
+          }
         }
       }
 
@@ -114,6 +117,15 @@ export default function BillScreen() {
               repairAmount: lCost,
               partsAmount: pCost,
               total: tot,
+            });
+            setQuote({
+              id: quoteData.id,
+              visitFee: vFee,
+              laborCost: lCost,
+              partsEstimate: pCost,
+              total: tot,
+              mechanicNotes: quoteData.mechanic_notes || '',
+              status: quoteData.status,
             });
           }
         }

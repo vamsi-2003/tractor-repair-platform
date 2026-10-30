@@ -92,7 +92,7 @@ export default function MechanicAssignedScreen() {
         // ONLY navigate if quote is pending AND job is quote_submitted!
         if (
           quoteData.status === 'pending' &&
-          (currentJob?.status === 'quote_submitted' || !currentJob?.status)
+          currentJob?.status === 'quote_submitted'
         ) {
           router.replace('/customer/request/quote-approval');
         }
@@ -535,8 +535,8 @@ export default function MechanicAssignedScreen() {
           </View>
         )}
 
-        {/* Finish Code Card: Shown when repair is approved, in progress, or bill ready */}
-        {(isRepairing || isBillReady || !!currentJob?.finishCode) && (
+        {/* Finish Code Card: Shown ONLY once repair is approved, in progress, or bill ready */}
+        {(isRepairing || isBillReady) && (
           <View style={styles.finishCodeCard}>
             <View style={styles.finishBadge}>
               <Ionicons name="shield-checkmark" size={16} color="#1565C0" />
