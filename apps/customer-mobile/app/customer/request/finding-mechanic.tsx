@@ -170,7 +170,8 @@ export default function FindingMechanicScreen() {
         }
       }
 
-      // Fetch start code generated server-side
+      // Fetch start code generated server-side with reliable RPC fallback
+      let startCode = '';
       const { data: codeData } = await supabase
         .from('secure_codes')
         .select('code')
@@ -178,7 +179,44 @@ export default function FindingMechanicScreen() {
         .eq('code_type', 'start')
         .maybeSingle();
 
-      const startCode = codeData?.code || '';
+      if (codeData?.code) {
+        startCode = codeData.code;
+      } else {
+        try {
+          const { data: rpcStart } = await supabase.rpc('get_or_create_start_code', {
+            p_job_id: job.id,
+          });
+          if (rpcStart?.code) {
+            startCode = rpcStart.code;
+          }
+        } catch (rpcErr) {
+          console.warn('Notice fetching start code RPC:', rpcErr);
+        }
+      }
+
+      // Fetch or generate finish code
+      let finishCode: string | null = null;
+      const { data: fcData } = await supabase
+        .from('secure_codes')
+        .select('code')
+        .eq('job_id', job.id)
+        .eq('code_type', 'finish')
+        .maybeSingle();
+
+      if (fcData?.code) {
+        finishCode = fcData.code;
+      } else {
+        try {
+          const { data: rpcFinish } = await supabase.rpc('get_or_create_finish_code', {
+            p_job_id: job.id,
+          });
+          if (rpcFinish?.code) {
+            finishCode = rpcFinish.code;
+          }
+        } catch (fcErr) {
+          console.warn('Notice fetching finish code RPC:', fcErr);
+        }
+      }
 
       setCurrentJob({
         id: job.id,
@@ -196,7 +234,7 @@ export default function FindingMechanicScreen() {
           longitude: null,
         },
         startCode,
-        finishCode: null,
+        finishCode,
         quote: null,
         invoice: null,
       });

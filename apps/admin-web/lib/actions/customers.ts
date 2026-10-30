@@ -28,7 +28,7 @@ export async function getCustomers(options?: {
         preferred_language,
         created_at
       ),
-      tractors:tractors (
+      tractors:tractors!tractors_customer_id_fkey (
         id,
         make,
         model,
@@ -87,7 +87,7 @@ export async function getCustomerById(id: string) {
         preferred_language,
         created_at
       ),
-      tractors:tractors (
+      tractors:tractors!tractors_customer_id_fkey (
         id,
         make,
         model,

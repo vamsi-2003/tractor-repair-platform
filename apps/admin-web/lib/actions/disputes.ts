@@ -42,14 +42,14 @@ export async function getDisputesAndTickets(options?: {
         invoice:invoices (
           id,
           total,
-          status
-        ),
-        payments:payments (
-          id,
-          amount,
-          method,
           status,
-          razorpay_payment_id
+          payments:payments (
+            id,
+            amount,
+            method,
+            status,
+            razorpay_payment_id
+          )
         )
       )
     `,
@@ -80,7 +80,14 @@ export async function getDisputesAndTickets(options?: {
     return { tickets: [], count: 0, error: error.message };
   }
 
-  return { tickets: data || [], count: count || 0 };
+  const tickets = (data || []).map((ticket: any) => {
+    if (ticket.job?.invoice?.payments && !ticket.job.payments) {
+      ticket.job.payments = ticket.job.invoice.payments;
+    }
+    return ticket;
+  });
+
+  return { tickets, count: count || 0 };
 }
 
 export async function resolveSupportTicket(

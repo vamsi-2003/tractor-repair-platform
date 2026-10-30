@@ -8,6 +8,7 @@
     "packages/*"
   ],
   "scripts": {
+    "dev:watchdog": "node scripts/supervisor.mjs",
     "dev:app": "pnpm --filter customer-mobile start",
     "dev:mobile": "pnpm --filter customer-mobile start",
     "dev:admin": "pnpm --filter admin-web dev",

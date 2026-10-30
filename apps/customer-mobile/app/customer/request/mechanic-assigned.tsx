@@ -156,7 +156,8 @@ export default function MechanicAssignedScreen() {
             }
           }
 
-          // Fetch start code
+          // Fetch start code with RPC fallback
+          let startCode = '';
           const { data: codeData } = await supabase
             .from('secure_codes')
             .select('code')
@@ -164,7 +165,20 @@ export default function MechanicAssignedScreen() {
             .eq('code_type', 'start')
             .maybeSingle();
 
-          const startCode = codeData?.code || '';
+          if (codeData?.code) {
+            startCode = codeData.code;
+          } else {
+            try {
+              const { data: rpcStart } = await supabase.rpc('get_or_create_start_code', {
+                p_job_id: job.id,
+              });
+              if (rpcStart?.code) {
+                startCode = rpcStart.code;
+              }
+            } catch (err) {
+              console.warn('RPC start code notice:', err);
+            }
+          }
 
           // Fetch finish code
           let finishCode: string | null = null;
@@ -304,6 +318,31 @@ export default function MechanicAssignedScreen() {
         router.replace('/customer/request/rating');
       }
 
+      // Check for start code if missing
+      if (!currentJob.startCode) {
+        const { data: scData } = await supabase
+          .from('secure_codes')
+          .select('code')
+          .eq('job_id', currentJob.id)
+          .eq('code_type', 'start')
+          .maybeSingle();
+
+        if (scData?.code) {
+          useRepairStore.getState().setStartCode(scData.code);
+        } else {
+          try {
+            const { data: rpcStart } = await supabase.rpc('get_or_create_start_code', {
+              p_job_id: currentJob.id,
+            });
+            if (rpcStart?.code) {
+              useRepairStore.getState().setStartCode(rpcStart.code);
+            }
+          } catch (err) {
+            // Non-blocking
+          }
+        }
+      }
+
       // Check for finish code if missing
       if (!currentJob.finishCode) {
         const { data: fcData } = await supabase
@@ -315,6 +354,17 @@ export default function MechanicAssignedScreen() {
 
         if (fcData?.code) {
           setFinishCode(fcData.code);
+        } else {
+          try {
+            const { data: rpcFinish } = await supabase.rpc('get_or_create_finish_code', {
+              p_job_id: currentJob.id,
+            });
+            if (rpcFinish?.code) {
+              setFinishCode(rpcFinish.code);
+            }
+          } catch (err) {
+            // Non-blocking
+          }
         }
       }
     };

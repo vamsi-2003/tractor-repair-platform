@@ -49,48 +49,56 @@ export default function ActiveJobScreen() {
     onJobChange: (updatedJob) => {
       if (!activeJob) return;
       if (updatedJob?.status === 'quote_approved') {
-        setActiveJob({
-          ...activeJob,
-          status: 'quote_approved',
-          quote: {
-            ...(activeJob.quote || quote),
-            status: 'approved',
-          },
-        });
+        if (activeJob.status === 'quote_submitted') {
+          setActiveJob({
+            ...activeJob,
+            status: 'quote_approved',
+            quote: {
+              ...(activeJob.quote || quote),
+              status: 'approved',
+            },
+          });
+        }
       } else if (
         updatedJob?.status === 'quote_declined' ||
         updatedJob?.status === 'quote_rejected'
       ) {
-        setActiveJob({
-          ...activeJob,
-          status: 'quote_declined',
-          quote: {
-            ...(activeJob.quote || quote),
-            status: 'rejected',
-          },
-        });
+        if (activeJob.status === 'quote_submitted') {
+          setActiveJob({
+            ...activeJob,
+            status: 'quote_declined',
+            quote: {
+              ...(activeJob.quote || quote),
+              status: 'rejected',
+            },
+          });
+        }
       }
     },
     onQuoteChange: (updatedQuote) => {
       if (!activeJob) return;
       if (updatedQuote?.status === 'approved') {
-        setActiveJob({
-          ...activeJob,
-          status: 'quote_approved',
-          quote: {
-            ...(activeJob.quote || quote),
-            status: 'approved',
-          },
-        });
+        if (activeJob.status === 'quote_submitted') {
+          setActiveJob({
+            ...activeJob,
+            status: 'quote_approved',
+            quote: {
+              ...(activeJob.quote || quote),
+              status: 'approved',
+            },
+          });
+        }
       } else if (updatedQuote?.status === 'rejected') {
-        setActiveJob({
-          ...activeJob,
-          status: 'quote_declined',
-          quote: {
-            ...(activeJob.quote || quote),
-            status: 'rejected',
-          },
-        });
+        if (activeJob.status === 'quote_submitted') {
+          setActiveJob({
+            ...activeJob,
+            status: 'quote_declined',
+            quote: {
+              ...(activeJob.quote || quote),
+              status: 'rejected',
+            },
+          });
+        }
       }
     },
   });
@@ -287,24 +295,28 @@ export default function ActiveJobScreen() {
           .eq('job_id', activeJob.id)
           .maybeSingle();
 
-        if (jobData?.status === 'quote_declined' || q?.status === 'rejected') {
-          setActiveJob({
-            ...activeJob,
-            status: 'quote_declined',
-            quote: {
-              ...(activeJob.quote || quote),
-              status: 'rejected',
-            },
-          });
-        } else if (jobData?.status === 'quote_approved' || q?.status === 'approved') {
-          setActiveJob({
-            ...activeJob,
-            status: 'quote_approved',
-            quote: {
-              ...(activeJob.quote || quote),
-              status: 'approved',
-            },
-          });
+        if (jobData?.status === 'quote_declined' || (jobData?.status === 'quote_submitted' && q?.status === 'rejected')) {
+          if (activeJob.status === 'quote_submitted') {
+            setActiveJob({
+              ...activeJob,
+              status: 'quote_declined',
+              quote: {
+                ...(activeJob.quote || quote),
+                status: 'rejected',
+              },
+            });
+          }
+        } else if (jobData?.status === 'quote_approved' || (jobData?.status === 'quote_submitted' && q?.status === 'approved')) {
+          if (activeJob.status === 'quote_submitted') {
+            setActiveJob({
+              ...activeJob,
+              status: 'quote_approved',
+              quote: {
+                ...(activeJob.quote || quote),
+                status: 'approved',
+              },
+            });
+          }
         }
       } catch (err) {
         console.warn('Notice syncing quote status:', err);

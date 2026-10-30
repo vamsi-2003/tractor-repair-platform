@@ -403,6 +403,7 @@ export const useJobStore = create<JobState>((set, get) => ({
 
     let jobId = '';
     let startCode = '';
+    let finishCode = '';
 
     try {
       const { data: req } = await supabase
@@ -506,7 +507,7 @@ export const useJobStore = create<JobState>((set, get) => ({
 
         if (rpcRes?.job_id) {
           jobId = rpcRes.job_id;
-          startCode = randomCode;
+          startCode = rpcRes.start_code || randomCode;
         } else if (rpcErr) {
           console.error('RPC assign_job_atomic error:', rpcErr);
           const { data: newJob, error: insertJobErr } = await supabase
@@ -529,7 +530,7 @@ export const useJobStore = create<JobState>((set, get) => ({
         }
       }
 
-      // Query genuine start code from secure_codes if not already captured
+      // Query genuine start code from secure_codes or invoke RPC if not already captured
       if (jobId && !startCode) {
         const { data: sc } = await supabase
           .from('secure_codes')
@@ -540,6 +541,43 @@ export const useJobStore = create<JobState>((set, get) => ({
 
         if (sc?.code) {
           startCode = sc.code;
+        } else {
+          try {
+            const { data: rpcStart } = await supabase.rpc('get_or_create_start_code', {
+              p_job_id: jobId,
+            });
+            if (rpcStart?.code) {
+              startCode = rpcStart.code;
+            }
+          } catch (err) {
+            console.warn('RPC get_or_create_start_code notice:', err);
+          }
+        }
+      }
+
+      // Query genuine finish code from secure_codes or invoke RPC
+      finishCode = '';
+      if (jobId) {
+        const { data: fc } = await supabase
+          .from('secure_codes')
+          .select('code')
+          .eq('job_id', jobId)
+          .eq('code_type', 'finish')
+          .maybeSingle();
+
+        if (fc?.code) {
+          finishCode = fc.code;
+        } else {
+          try {
+            const { data: rpcFinish } = await supabase.rpc('get_or_create_finish_code', {
+              p_job_id: jobId,
+            });
+            if (rpcFinish?.code) {
+              finishCode = rpcFinish.code;
+            }
+          } catch (err) {
+            console.warn('RPC get_or_create_finish_code notice:', err);
+          }
         }
       }
 
@@ -628,7 +666,7 @@ export const useJobStore = create<JobState>((set, get) => ({
       paymentMethod: 'cash',
       platformFeeLiability: 0,
       cashReceivedConfirmed: false,
-      finishCode: '',
+      finishCode: finishCode || '',
       finishCodeVerified: false,
     };
 
@@ -674,17 +712,14 @@ export const useJobStore = create<JobState>((set, get) => ({
       return { success: false, message: 'Code must be 4 or 6 digits' };
     }
 
-    // Try edge function if available
+    // 1. Try atomic RPC verify_job_start_code
     try {
-      const { data, error } = await supabase.functions.invoke('verify-code', {
-        body: {
-          job_id: activeJob.id,
-          code: cleanCode,
-          code_type: 'start',
-        },
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc('verify_job_start_code', {
+        p_job_id: activeJob.id,
+        p_code: cleanCode,
       });
 
-      if (!error && data?.valid) {
+      if (!rpcErr && rpcRes?.success) {
         set({
           activeJob: {
             ...activeJob,
@@ -692,13 +727,15 @@ export const useJobStore = create<JobState>((set, get) => ({
             status: 'arrived',
           },
         });
-        return { success: true, message: 'Start code verified successfully!' };
+        return { success: true, message: rpcRes.message || 'Start code verified successfully!' };
+      } else if (rpcRes && !rpcRes.success) {
+        return { success: false, message: rpcRes.message || 'Incorrect Start Code.' };
       }
-    } catch (e) {
-      // Fallback to local matching
+    } catch (rpcEx) {
+      console.warn('RPC verify_job_start_code notice, falling back:', rpcEx);
     }
 
-    // Try checking directly against secure_codes table
+    // 2. Try checking directly against secure_codes table
     try {
       const { data: codeRow } = await supabase
         .from('secure_codes')
@@ -713,6 +750,15 @@ export const useJobStore = create<JobState>((set, get) => ({
           .update({ is_used: true, used_at: new Date().toISOString() })
           .eq('id', codeRow.id);
 
+        await supabase
+          .from('jobs')
+          .update({
+            status: 'arrived',
+            arrived_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', activeJob.id);
+
         set({
           activeJob: {
             ...activeJob,
@@ -726,8 +772,21 @@ export const useJobStore = create<JobState>((set, get) => ({
       // Fallback to activeJob startCode
     }
 
-    // Local code match check against active job start code
+    // 3. Local code match check against active job start code
     if (activeJob.startCode && cleanCode === activeJob.startCode) {
+      try {
+        await supabase
+          .from('jobs')
+          .update({
+            status: 'arrived',
+            arrived_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', activeJob.id);
+      } catch (err) {
+        // Non-blocking
+      }
+
       set({
         activeJob: {
           ...activeJob,

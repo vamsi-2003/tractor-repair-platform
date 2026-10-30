@@ -452,3 +452,229 @@ CREATE POLICY "Mechanics can update matched requests"
     )
   )
   WITH CHECK (true);
+
+-- -------------------------------------------------------------
+-- 6. SECURE CODES ROBUST RPCs & AUTOMATIC TRIGGER
+-- -------------------------------------------------------------
+
+-- A. Get or Create Start Code RPC
+CREATE OR REPLACE FUNCTION public.get_or_create_start_code(p_job_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_code RECORD;
+  v_new_code TEXT;
+  v_job RECORD;
+BEGIN
+  SELECT * INTO v_job FROM public.jobs WHERE id = p_job_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Job % not found', p_job_id;
+  END IF;
+
+  SELECT * INTO v_code
+  FROM public.secure_codes
+  WHERE job_id = p_job_id AND code_type = 'start';
+
+  IF FOUND THEN
+    RETURN jsonb_build_object(
+      'success', true,
+      'code', v_code.code,
+      'is_used', v_code.is_used
+    );
+  END IF;
+
+  v_new_code := (FLOOR(100000 + RANDOM() * 900000))::TEXT;
+
+  INSERT INTO public.secure_codes (
+    job_id,
+    code_type,
+    code,
+    code_hash,
+    expires_at,
+    max_attempts,
+    attempts,
+    is_used
+  ) VALUES (
+    p_job_id,
+    'start',
+    v_new_code,
+    v_new_code,
+    now() + INTERVAL '24 hours',
+    3,
+    0,
+    false
+  );
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'code', v_new_code,
+    'is_used', false
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_or_create_start_code(UUID) TO authenticated, service_role, anon;
+
+-- B. Get or Create Finish Code RPC
+CREATE OR REPLACE FUNCTION public.get_or_create_finish_code(p_job_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_code RECORD;
+  v_new_code TEXT;
+  v_job RECORD;
+BEGIN
+  SELECT * INTO v_job FROM public.jobs WHERE id = p_job_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Job % not found', p_job_id;
+  END IF;
+
+  SELECT * INTO v_code
+  FROM public.secure_codes
+  WHERE job_id = p_job_id AND code_type = 'finish';
+
+  IF FOUND THEN
+    RETURN jsonb_build_object(
+      'success', true,
+      'code', v_code.code,
+      'is_used', v_code.is_used
+    );
+  END IF;
+
+  v_new_code := (FLOOR(100000 + RANDOM() * 900000))::TEXT;
+
+  INSERT INTO public.secure_codes (
+    job_id,
+    code_type,
+    code,
+    code_hash,
+    expires_at,
+    max_attempts,
+    attempts,
+    is_used
+  ) VALUES (
+    p_job_id,
+    'finish',
+    v_new_code,
+    v_new_code,
+    now() + INTERVAL '24 hours',
+    5,
+    0,
+    false
+  );
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'code', v_new_code,
+    'is_used', false
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_or_create_finish_code(UUID) TO authenticated, service_role, anon;
+
+-- C. Verify Job Start Code RPC
+CREATE OR REPLACE FUNCTION public.verify_job_start_code(
+  p_job_id UUID,
+  p_code TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_job RECORD;
+  v_code RECORD;
+  v_clean_code TEXT := TRIM(p_code);
+BEGIN
+  SELECT * INTO v_job FROM public.jobs WHERE id = p_job_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Job not found');
+  END IF;
+
+  SELECT * INTO v_code
+  FROM public.secure_codes
+  WHERE job_id = p_job_id AND code_type = 'start'
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Start code not generated for this job');
+  END IF;
+
+  IF TRIM(v_code.code) != v_clean_code THEN
+    UPDATE public.secure_codes
+    SET attempts = attempts + 1
+    WHERE id = v_code.id;
+    RETURN jsonb_build_object('success', false, 'message', 'Incorrect Start Code. Please ask the farmer for the code displayed on their app.');
+  END IF;
+
+  UPDATE public.secure_codes
+  SET is_used = true, used_at = now()
+  WHERE id = v_code.id;
+
+  UPDATE public.jobs
+  SET status = 'arrived',
+      arrived_at = COALESCE(arrived_at, now()),
+      updated_at = now()
+  WHERE id = p_job_id;
+
+  INSERT INTO public.job_status_history (job_id, old_status, new_status, notes)
+  VALUES (p_job_id, v_job.status, 'arrived', 'Start code verified successfully. Mechanic arrived at site.');
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'status', 'arrived',
+    'message', 'Start code verified successfully!'
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.verify_job_start_code(UUID, TEXT) TO authenticated, service_role, anon;
+
+-- D. Automatic Secure Code Generation Trigger
+CREATE OR REPLACE FUNCTION public.ensure_job_secure_codes()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_start_code TEXT;
+  v_finish_code TEXT;
+BEGIN
+  IF NEW.status IN ('assigned', 'started', 'quote_submitted', 'quote_approved', 'repair_in_progress', 'bill_ready') THEN
+    IF NOT EXISTS (SELECT 1 FROM public.secure_codes WHERE job_id = NEW.id AND code_type = 'start') THEN
+      v_start_code := (FLOOR(100000 + RANDOM() * 900000))::TEXT;
+      INSERT INTO public.secure_codes (
+        job_id, code_type, code, code_hash, expires_at, max_attempts, attempts, is_used
+      ) VALUES (
+        NEW.id, 'start', v_start_code, v_start_code, now() + INTERVAL '24 hours', 3, 0, false
+      );
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM public.secure_codes WHERE job_id = NEW.id AND code_type = 'finish') THEN
+      v_finish_code := (FLOOR(100000 + RANDOM() * 900000))::TEXT;
+      INSERT INTO public.secure_codes (
+        job_id, code_type, code, code_hash, expires_at, max_attempts, attempts, is_used
+      ) VALUES (
+        NEW.id, 'finish', v_finish_code, v_finish_code, now() + INTERVAL '24 hours', 5, 0, false
+      );
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_jobs_ensure_secure_codes ON public.jobs;
+CREATE TRIGGER trg_jobs_ensure_secure_codes
+  AFTER INSERT OR UPDATE OF status ON public.jobs
+  FOR EACH ROW
+  EXECUTE FUNCTION public.ensure_job_secure_codes();
+

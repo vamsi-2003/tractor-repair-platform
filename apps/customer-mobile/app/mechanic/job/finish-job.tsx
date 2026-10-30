@@ -48,19 +48,54 @@ export default function FinishJobScreen() {
   const [isVerifyingFinishCode, setIsVerifyingFinishCode] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
 
-  // Auto-seed spare parts from approved quote if no itemized parts were added
+  // Hydrate quote from Supabase and auto-seed spare parts from approved quote
   useEffect(() => {
-    if (
-      activeJob &&
-      activeJob.spareParts.length === 0 &&
-      (activeJob.quote?.partsEstimate || 0) > 0
-    ) {
-      addSparePart(
-        'Replaced Spare Parts (as quoted & approved)',
-        1,
-        Number(activeJob.quote.partsEstimate)
-      );
-    }
+    if (!activeJob?.id) return;
+    (async () => {
+      try {
+        const { data: q } = await supabase
+          .from('quotes')
+          .select('*')
+          .eq('job_id', activeJob.id)
+          .maybeSingle();
+
+        if (q) {
+          const partsEst = Number(q.parts_estimate || 0);
+          const labor = Number(q.labor_cost || 0);
+          const visit = Number(q.visit_fee || 200);
+          const tot = Number(q.total || (visit + labor + partsEst));
+
+          useJobStore.setState((state) => {
+            if (!state.activeJob) return state;
+            const updatedQuote = {
+              ...(state.activeJob.quote || {}),
+              id: q.id,
+              visitFee: visit,
+              laborCost: labor,
+              partsEstimate: partsEst,
+              total: tot,
+              status: q.status,
+            };
+            return {
+              activeJob: {
+                ...state.activeJob,
+                quote: updatedQuote as any,
+              },
+            };
+          });
+
+          if (partsEst > 0 && activeJob.spareParts.length === 0) {
+            addSparePart(
+              'Replaced Spare Parts (as quoted & approved)',
+              1,
+              partsEst
+            );
+          }
+        }
+      } catch (err) {
+        console.warn('Error fetching quote in finish-job:', err);
+      }
+    })();
   }, [activeJob?.id]);
 
   if (!activeJob) {

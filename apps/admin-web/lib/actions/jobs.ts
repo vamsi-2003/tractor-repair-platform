@@ -185,18 +185,17 @@ export async function getJobById(id: string) {
         platform_fee,
         total,
         status,
-        created_at
-      ),
-      payments:payments (
-        id,
-        amount,
-        payment_method,
-        payment_status,
-        razorpay_payment_id,
-        razorpay_order_id,
-        cash_collected_by_mechanic,
-        paid_at,
-        created_at
+        created_at,
+        payments:payments (
+          id,
+          amount,
+          method,
+          status,
+          razorpay_payment_id,
+          razorpay_order_id,
+          paid_at,
+          created_at
+        )
       ),
       status_history:job_status_history (
         id,
@@ -230,6 +229,10 @@ export async function getJobById(id: string) {
   if (error || !job) {
     console.error('Error fetching job details:', error);
     return null;
+  }
+
+  if ((job as any).invoice?.payments && !(job as any).payments) {
+    (job as any).payments = (job as any).invoice.payments;
   }
 
   return job;
