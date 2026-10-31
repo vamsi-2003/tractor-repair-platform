@@ -21,6 +21,8 @@ import { supabase } from '../../../services/supabase';
 import { useAuthStore } from '../../../store/authStore';
 import { useJobStore } from '../../../store/jobStore';
 import { formatCurrency } from '@tractor-repair/shared';
+import { LanguageToggle } from '../../../components/LanguageToggle';
+import { OfflineBanner } from '../../../components/OfflineBanner';
 
 export default function HomeScreen() {
   const { profile, mechanic, isOnline, setIsOnline, serviceRadiusKm, setMechanic } = useAuthStore();
@@ -495,8 +497,17 @@ export default function HomeScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* Pending Approval Checklist Banner (Page 10 of Prototype) */}
+    <View style={{ flex: 1, backgroundColor: '#F7F6F2' }}>
+      <OfflineBanner />
+      <View style={styles.mechanicTopHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.mechanicHeaderGreeting}>MECHANIC DASHBOARD</Text>
+          <Text style={styles.mechanicHeaderName}>{profile?.full_name || 'Partner Mechanic'}</Text>
+        </View>
+        <LanguageToggle />
+      </View>
+      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+        {/* Pending Approval Checklist Banner (Page 10 of Prototype) */}
       {(mechanic?.status === 'pending_approval' || mechanic?.status === 'pending') && (
         <View style={styles.pendingApprovalCard}>
           <View style={styles.pendingHeader}>
@@ -812,10 +823,33 @@ export default function HomeScreen() {
         </View>
       </Modal>
     </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  mechanicTopHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8E6DF',
+  },
+  mechanicHeaderGreeting: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#1E3A5F',
+    letterSpacing: 1.2,
+  },
+  mechanicHeaderName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#222222',
+    marginTop: 2,
+  },
   container: {
     flex: 1,
     backgroundColor: '#F4F6F9',

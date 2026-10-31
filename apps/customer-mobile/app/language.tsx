@@ -7,6 +7,8 @@ const languages: { code: Language; name: string; nativeName: string }[] = [
   { code: 'en', name: 'English', nativeName: 'English' },
   { code: 'te', name: 'Telugu', nativeName: 'తెలుగు' },
   { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी' },
+  { code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ' },
+  { code: 'ta', name: 'Tamil', nativeName: 'தமிழ்' },
 ];
 
 export default function LanguageScreen() {
@@ -40,8 +42,8 @@ export default function LanguageScreen() {
 
       <View style={styles.content}>
         <Text style={styles.title}>CHOOSE YOUR{'\n'}LANGUAGE</Text>
-        <Text style={styles.subtitle}>భాషను ఎంచుకోండి</Text>
-        <Text style={styles.subtitle}>अपनी भाषा चुनें</Text>
+        <Text style={styles.subtitle}>భాషను ఎంచుకోండి · अपनी भाषा चुनें</Text>
+        <Text style={styles.subtitle}>ಭಾಷೆಯನ್ನು ಆರಿಸಿ · மொழியைத் தேர்வுசெய்</Text>
 
         <View style={styles.languageList}>
           {languages.map((lang) => (
@@ -65,10 +67,10 @@ export default function LanguageScreen() {
           <TouchableOpacity style={[styles.languageButton, styles.languageDisabled]} disabled>
             <View style={styles.languageContent}>
               <Text style={[styles.languageNative, styles.languageDisabledText]}>
-                More languages
+                More languages coming soon
               </Text>
               <Text style={[styles.languageEnglish, styles.languageDisabledText]}>
-                Tamil, Kannada, Marathi…
+                Marathi, Gujarati, Bengali, Punjabi…
               </Text>
             </View>
           </TouchableOpacity>

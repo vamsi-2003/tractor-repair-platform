@@ -19,6 +19,8 @@ import { supabase } from '../../../services/supabase';
 import { useRepairStore } from '../../../store/repairStore';
 import { useRealtimeSync } from '../../../hooks/useRealtimeSync';
 import { SpeechSpeaker } from '../../../components/SpeechSpeaker';
+import { LanguageToggle } from '../../../components/LanguageToggle';
+import { OfflineBanner } from '../../../components/OfflineBanner';
 import { APP_NAME } from '@tractor-repair/shared';
 
 export default function MechanicAssignedScreen() {
@@ -464,10 +466,14 @@ export default function MechanicAssignedScreen() {
 
   return (
     <View style={styles.screenWrapper}>
-      {/* Top Header Bar with Read-Aloud Speaker */}
+      <OfflineBanner />
+      {/* Top Header Bar with Language Toggle & Read-Aloud Speaker */}
       <View style={styles.topHeader}>
         <Text style={styles.appTitle}>{APP_NAME.toUpperCase()}</Text>
-        <SpeechSpeaker text={speechText} label="Read screen" />
+        <View style={styles.headerActions}>
+          <LanguageToggle />
+          <SpeechSpeaker text={speechText} label="Read screen" />
+        </View>
       </View>
 
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
@@ -718,6 +724,11 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#C63C14',
     letterSpacing: 1.5,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   container: {
     flex: 1,

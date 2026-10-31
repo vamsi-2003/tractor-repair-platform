@@ -20,17 +20,19 @@ import { supabase } from '../../../services/supabase';
 import { useAuthStore } from '../../../store/authStore';
 import { useRepairStore } from '../../../store/repairStore';
 import { SpeechSpeaker } from '../../../components/SpeechSpeaker';
+import { LanguageToggle } from '../../../components/LanguageToggle';
+import { OfflineBanner } from '../../../components/OfflineBanner';
 import { VoiceNoteRecorder } from '../../../components/VoiceNoteRecorder';
 import { TractorSelectorModal } from '../../../components/TractorSelectorModal';
 import { APP_NAME } from '@tractor-repair/shared';
 
 const CATEGORIES = [
-  { id: 'engine', name: 'Engine won\'t start', icon: 'cog', nameTE: 'ఇంజన్ పనిచేయట్లేదు', nameHI: 'इंजन चालू नहीं हो रहा' },
-  { id: 'hydraulics', name: 'Hydraulic lift issue', icon: 'water', nameTE: 'హైడ్రాలిక్ లిఫ్ట్ సమస్య', nameHI: 'हाइड्रोलिक लिफ्ट समस्या' },
-  { id: 'clutch_gearbox', name: 'Clutch / gear slip', icon: 'settings', nameTE: 'క్లచ్ / గేర్ స్లిప్', nameHI: 'क्लच / गियर स्लिप' },
-  { id: 'tyres', name: 'Tyres / Brakes', icon: 'disc', nameTE: 'టైర్లు / బ్రేకులు', nameHI: 'टायर / ब्रेक' },
-  { id: 'electrical', name: 'Electrical / Wiring', icon: 'flash', nameTE: 'ఎలక్ట్రికల్ / వైరింగ్', nameHI: 'इलेक्ट्रिकल / वायरिंग' },
-  { id: 'other', name: 'Other problem', icon: 'build', nameTE: 'ఇతర సమస్య', nameHI: 'अन्य समस्या' },
+  { id: 'engine', name: 'Engine won\'t start', icon: 'cog', nameTE: 'ఇంజన్ పనిచేయట్లేదు', nameHI: 'इंजन चालू नहीं हो रहा', nameKN: 'ಎಂಜಿನ್ ಸ್ಟಾರ್ಟ್ ಆಗುತ್ತಿಲ್ಲ', nameTA: 'எஞ்சின் ஸ்டார்ட் ஆகவில்லை' },
+  { id: 'hydraulics', name: 'Hydraulic lift issue', icon: 'water', nameTE: 'హైడ్రాలిక్ లిఫ్ట్ సమస్య', nameHI: 'हाइड्रोलिक लिफ्ट समस्या', nameKN: 'ಹೈಡ್ರಾಲಿಕ್ ಲಿಫ್ಟ್ ಸಮಸ್ಯೆ', nameTA: 'ஹைட்ராலிக் லிப்ட் பிரச்சனை' },
+  { id: 'clutch_gearbox', name: 'Clutch / gear slip', icon: 'settings', nameTE: 'క్లచ్ / గేర్ స్లిప్', nameHI: 'क्लच / गियर स्लिप', nameKN: 'ಕ್ಲಚ್ / ಗೇರ್ ಸ್ಲಿಪ್', nameTA: 'கிளட்ச் / கியர் ஸ்லிப்' },
+  { id: 'tyres', name: 'Tyres / Brakes', icon: 'disc', nameTE: 'టైర్లు / బ్రేకులు', nameHI: 'टायर / ब्रेक', nameKN: 'ಟೈರ್ / ಬ್ರೇಕ್‌ಗಳು', nameTA: 'டயர் / பிரேக்குகள்' },
+  { id: 'electrical', name: 'Electrical / Wiring', icon: 'flash', nameTE: 'ఎలక్ట్రికల్ / వైరింగ్', nameHI: 'इलेक्ट्रिकल / वायरिंग', nameKN: 'ವಿದ್ಯುತ್ / ವೈರಿಂಗ್', nameTA: 'எலக்ட்ரிக்கல் / வயரிங்' },
+  { id: 'other', name: 'Other problem', icon: 'build', nameTE: 'ఇతర సమస్య', nameHI: 'अन्य समस्या', nameKN: 'ಇತರೆ ಸಮಸ್ಯೆ', nameTA: 'மற்ற பிரச்சனை' },
 ];
 
 export default function NewRequestScreen() {
@@ -360,6 +362,8 @@ export default function NewRequestScreen() {
     switch (language) {
       case 'te': return cat.nameTE;
       case 'hi': return cat.nameHI;
+      case 'kn': return cat.nameKN;
+      case 'ta': return cat.nameTA;
       default: return cat.name;
     }
   };
@@ -368,13 +372,17 @@ export default function NewRequestScreen() {
 
   return (
     <View style={styles.screenWrapper}>
-      {/* Top Header Bar with Read-Aloud Speaker */}
+      <OfflineBanner />
+      {/* Top Header Bar with Language Toggle & Read-Aloud Speaker */}
       <View style={styles.topHeader}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.appTitle}>{APP_NAME.toUpperCase()}</Text>
           <Text style={styles.screenSubtitle}>NEW REPAIR REQUEST</Text>
         </View>
-        <SpeechSpeaker text={screenSpeechText} label="Read screen" />
+        <View style={styles.headerActions}>
+          <LanguageToggle />
+          <SpeechSpeaker text={screenSpeechText} label="Read screen" />
+        </View>
       </View>
 
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
@@ -670,6 +678,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#666',
     marginTop: 2,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   container: {
     flex: 1,

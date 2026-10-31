@@ -14,6 +14,8 @@ import { supabase } from '../../../services/supabase';
 import { useAuthStore } from '../../../store/authStore';
 import { useRepairStore } from '../../../store/repairStore';
 import { SpeechSpeaker } from '../../../components/SpeechSpeaker';
+import { LanguageToggle } from '../../../components/LanguageToggle';
+import { OfflineBanner } from '../../../components/OfflineBanner';
 import { TractorSelectorModal } from '../../../components/TractorSelectorModal';
 import { APP_NAME } from '@tractor-repair/shared';
 
@@ -149,13 +151,17 @@ export default function CustomerHomeScreen() {
 
   return (
     <View style={styles.screenWrapper}>
-      {/* Top Header Bar with Read-Aloud Speaker */}
+      <OfflineBanner />
+      {/* Top Header Bar with Language Toggle & Read-Aloud Speaker */}
       <View style={styles.topHeader}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.appTitle}>{APP_NAME.toUpperCase()}</Text>
           <Text style={styles.welcomeText}>Welcome, {profile?.full_name || 'Farmer'}</Text>
         </View>
-        <SpeechSpeaker text={speechText} label="Read screen" />
+        <View style={styles.headerActions}>
+          <LanguageToggle />
+          <SpeechSpeaker text={speechText} label="Read screen" />
+        </View>
       </View>
 
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
@@ -365,6 +371,11 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 2,
     fontWeight: '600',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   container: {
     flex: 1,

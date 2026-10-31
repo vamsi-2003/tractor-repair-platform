@@ -129,6 +129,8 @@ export const SUPPORTED_LANGUAGES = [
   { code: 'en', name: 'English', nativeName: 'English' },
   { code: 'te', name: 'Telugu', nativeName: 'తెలుగు' },
   { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी' },
+  { code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ' },
+  { code: 'ta', name: 'Tamil', nativeName: 'தமிழ்' },
 ] as const;
 
 export type SupportedLanguageCode = (typeof SUPPORTED_LANGUAGES)[number]['code'];

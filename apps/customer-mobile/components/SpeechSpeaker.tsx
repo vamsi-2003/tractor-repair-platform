@@ -31,6 +31,10 @@ export function SpeechSpeaker({
         return 'te-IN';
       case 'hi':
         return 'hi-IN';
+      case 'kn':
+        return 'kn-IN';
+      case 'ta':
+        return 'ta-IN';
       default:
         return 'en-IN';
     }
