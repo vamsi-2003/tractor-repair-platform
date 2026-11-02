@@ -19,6 +19,11 @@ const LANGUAGE_OPTIONS: { code: Language; label: string; native: string; badge: 
   { code: 'ta', label: 'Tamil', native: 'தமிழ்', badge: 'த' },
 ];
 
+const BRAND_COLOR = '#006376';
+const BRAND_LIGHT = '#EDF8F9';
+const BRAND_BORDER = '#B2D8DE';
+const BRAND_DARK = '#004957';
+
 export function LanguageToggle() {
   const { language, setLanguage } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
@@ -40,9 +45,9 @@ export function LanguageToggle() {
         accessibilityRole="button"
         accessibilityLabel={`Change language, current is ${currentOption.label}`}
       >
-        <Ionicons name="globe-outline" size={16} color="#2E7D32" />
+        <Ionicons name="globe-outline" size={16} color={BRAND_COLOR} />
         <Text style={styles.pillText}>{currentOption.badge}</Text>
-        <Ionicons name="chevron-down" size={12} color="#2E7D32" />
+        <Ionicons name="chevron-down" size={12} color={BRAND_COLOR} />
       </TouchableOpacity>
 
       <Modal
@@ -55,7 +60,7 @@ export function LanguageToggle() {
           <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
             <View style={styles.modalHeader}>
               <View style={styles.modalTitleRow}>
-                <Ionicons name="language" size={20} color="#2E7D32" />
+                <Ionicons name="language" size={20} color={BRAND_COLOR} />
                 <Text style={styles.modalTitle}>Choose Language / భాష</Text>
               </View>
               <TouchableOpacity
@@ -97,7 +102,7 @@ export function LanguageToggle() {
                       <Ionicons
                         name="checkmark-circle"
                         size={22}
-                        color="#2E7D32"
+                        color={BRAND_COLOR}
                       />
                     )}
                   </TouchableOpacity>
@@ -116,17 +121,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: BRAND_LIGHT,
     paddingVertical: 5,
     paddingHorizontal: 10,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#C8E6C9',
+    borderColor: BRAND_BORDER,
   },
   pillText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#2E7D32',
+    color: BRAND_COLOR,
   },
   modalOverlay: {
     flex: 1,
@@ -164,7 +169,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#1B5E20',
+    color: BRAND_DARK,
   },
   closeBtn: {
     padding: 4,
@@ -185,8 +190,8 @@ const styles = StyleSheet.create({
     minHeight: 56, // Meets rural tactile accessibility requirement
   },
   optionItemSelected: {
-    backgroundColor: '#E8F5E9',
-    borderColor: '#2E7D32',
+    backgroundColor: BRAND_LIGHT,
+    borderColor: BRAND_COLOR,
   },
   optionTextWrap: {
     flexDirection: 'column',
@@ -203,6 +208,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   selectedText: {
-    color: '#1B5E20',
+    color: BRAND_COLOR,
   },
 });

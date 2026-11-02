@@ -1,12 +1,27 @@
+import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuthStore } from '../../../store/authStore';
+
+const BRAND_COLOR = '#006376'; // Casal Teal
+
+const TAB_TRANSLATIONS: Record<string, { home: string; history: string; alerts: string; settings: string }> = {
+  en: { home: 'Home', history: 'History', alerts: 'Alerts', settings: 'Settings' },
+  te: { home: 'హోమ్', history: 'చరిత్ర', alerts: 'హెచ్చరికలు', settings: 'సెట్టింగ్‌లు' },
+  hi: { home: 'होम', history: 'इतिहास', alerts: 'अलर्ट', settings: 'सेटिंग्स' },
+  kn: { home: 'ಮುಖಪುಟ', history: 'ಇತಿಹಾಸ', alerts: 'ಎಚ್ಚರಿಕೆಗಳು', settings: 'ಸೆಟ್ಟಿಂಗ್‌ಗಳು' },
+  ta: { home: 'முகப்பு', history: 'வரலாறு', alerts: 'அறிவிப்புகள்', settings: 'அமைப்புகள்' },
+};
 
 export default function TabLayout() {
+  const { language } = useAuthStore();
+  const t = TAB_TRANSLATIONS[language] || TAB_TRANSLATIONS.en;
+
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#2E7D32',
-        tabBarInactiveTintColor: '#9E9E9E',
+        tabBarActiveTintColor: BRAND_COLOR,
+        tabBarInactiveTintColor: '#78909C',
         tabBarStyle: {
           backgroundColor: '#FFFFFF',
           borderTopColor: '#E0E0E0',
@@ -16,21 +31,22 @@ export default function TabLayout() {
         },
         tabBarLabelStyle: {
           fontSize: 12,
-          fontWeight: '600',
+          fontWeight: '700',
         },
         headerStyle: {
-          backgroundColor: '#2E7D32',
+          backgroundColor: BRAND_COLOR,
         },
-        headerTintColor: '#fff',
+        headerTintColor: '#FFFFFF',
         headerTitleStyle: {
-          fontWeight: 'bold',
+          fontWeight: '800',
         },
       }}
     >
       <Tabs.Screen
         name="home"
         options={{
-          title: 'Home',
+          title: t.home,
+          tabBarLabel: t.home,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home" size={size} color={color} />
           ),
@@ -39,7 +55,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="history"
         options={{
-          title: 'History',
+          title: t.history,
+          tabBarLabel: t.history,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="time" size={size} color={color} />
           ),
@@ -48,7 +65,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="notifications"
         options={{
-          title: 'Alerts',
+          title: t.alerts,
+          tabBarLabel: t.alerts,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="notifications" size={size} color={color} />
           ),
@@ -57,7 +75,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
+          title: t.settings,
+          tabBarLabel: t.settings,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="settings" size={size} color={color} />
           ),

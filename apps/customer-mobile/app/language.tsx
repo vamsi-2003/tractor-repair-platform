@@ -1,21 +1,39 @@
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import React from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  SafeAreaView,
+  StatusBar,
+  ScrollView,
+  Platform,
+} from 'react-native';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../store/authStore';
 import { APP_NAME, type Language } from '@tractor-repair/shared';
 
-const languages: { code: Language; name: string; nativeName: string }[] = [
-  { code: 'en', name: 'English', nativeName: 'English' },
-  { code: 'te', name: 'Telugu', nativeName: 'తెలుగు' },
-  { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी' },
-  { code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ' },
-  { code: 'ta', name: 'Tamil', nativeName: 'தமிழ்' },
+// ─── Theme Constants (Casal Primary Theme) ───────────────────────────
+const BRAND_COLOR = '#006376'; // Casal Teal
+const BRAND_DARK = '#004957';
+const BRAND_BG = '#0F282D';
+const BRAND_LIGHT = '#EDF8F9';
+
+const languages: { code: Language; name: string; nativeName: string; region: string }[] = [
+  { code: 'en', name: 'English', nativeName: 'English', region: 'All Regions' },
+  { code: 'te', name: 'Telugu', nativeName: 'తెలుగు', region: 'ఆంధ్రప్రదేశ్ & తెలంగాణ' },
+  { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी', region: 'उत्तर भारत' },
+  { code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ', region: 'ಕರ್ನಾಟಕ' },
+  { code: 'ta', name: 'Tamil', nativeName: 'தமிழ்', region: 'தமிழ்நாடு' },
 ];
 
 export default function LanguageScreen() {
-  const { setLanguage, isAuthenticated, profile, selectedRole, user } = useAuthStore();
+  const { language: currentLanguage, setLanguage, isAuthenticated, profile, selectedRole, user } =
+    useAuthStore();
 
-  const handleSelectLanguage = (language: Language) => {
-    setLanguage(language);
+  const handleSelectLanguage = (newLanguage: Language) => {
+    setLanguage(newLanguage);
     if (isAuthenticated) {
       const isMechanic =
         profile?.role === 'mechanic' ||
@@ -35,49 +53,67 @@ export default function LanguageScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.appName}>{APP_NAME.toUpperCase()}</Text>
-        <View style={styles.divider} />
-      </View>
-
-      <View style={styles.content}>
-        <Text style={styles.title}>CHOOSE YOUR{'\n'}LANGUAGE</Text>
-        <Text style={styles.subtitle}>భాషను ఎంచుకోండి · अपनी भाषा चुनें</Text>
-        <Text style={styles.subtitle}>ಭಾಷೆಯನ್ನು ಆರಿಸಿ · மொழியைத் தேர்வுசெய்</Text>
-
-        <View style={styles.languageList}>
-          {languages.map((lang) => (
-            <TouchableOpacity
-              key={lang.code}
-              style={styles.languageButton}
-              onPress={() => handleSelectLanguage(lang.code)}
-              accessibilityLabel={`Select ${lang.name}`}
-              accessibilityRole="button"
-            >
-              <View style={styles.languageContent}>
-                <Text style={styles.languageNative}>{lang.nativeName}</Text>
-                {lang.code !== 'en' && (
-                  <Text style={styles.languageEnglish}>{lang.name}</Text>
-                )}
-              </View>
-              <Text style={styles.languageArrow}>›</Text>
-            </TouchableOpacity>
-          ))}
-
-          <TouchableOpacity style={[styles.languageButton, styles.languageDisabled]} disabled>
-            <View style={styles.languageContent}>
-              <Text style={[styles.languageNative, styles.languageDisabledText]}>
-                More languages coming soon
-              </Text>
-              <Text style={[styles.languageEnglish, styles.languageDisabledText]}>
-                Marathi, Gujarati, Bengali, Punjabi…
-              </Text>
+      <StatusBar barStyle="light-content" backgroundColor={BRAND_BG} />
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.header}>
+          <View style={styles.brandRow}>
+            <View style={styles.iconCircle}>
+              <Ionicons name="globe-outline" size={18} color="#FFFFFF" />
             </View>
-          </TouchableOpacity>
+            <Text style={styles.appName}>{APP_NAME.toUpperCase()}</Text>
+          </View>
+          <View style={styles.divider} />
         </View>
 
-        <Text style={styles.hint}>You can change this later in Settings.</Text>
-      </View>
+        <View style={styles.content}>
+          <Text style={styles.title}>CHOOSE YOUR{'\n'}LANGUAGE</Text>
+          <Text style={styles.subtitle}>భాషను ఎంచుకోండి · अपनी भाषा चुनें</Text>
+          <Text style={styles.subtitle}>ಭಾಷೆಯನ್ನು ಆರಿಸಿ · மொழியைத் தேர்வுசெய்</Text>
+
+          <View style={styles.languageList}>
+            {languages.map((lang) => {
+              const isSelected = currentLanguage === lang.code;
+              return (
+                <TouchableOpacity
+                  key={lang.code}
+                  style={[styles.languageButton, isSelected && styles.languageButtonSelected]}
+                  onPress={() => handleSelectLanguage(lang.code)}
+                  accessibilityLabel={`Select ${lang.name}`}
+                  accessibilityRole="button"
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.languageContent}>
+                    <Text style={[styles.languageNative, isSelected && styles.languageNativeSelected]}>
+                      {lang.nativeName}
+                    </Text>
+                    <Text style={[styles.languageEnglish, isSelected && styles.languageEnglishSelected]}>
+                      {lang.name} • {lang.region}
+                    </Text>
+                  </View>
+                  <View style={styles.arrowBox}>
+                    {isSelected ? (
+                      <Ionicons name="checkmark-circle" size={24} color={BRAND_COLOR} />
+                    ) : (
+                      <Ionicons name="chevron-forward" size={20} color="#78909C" />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+
+            <View style={styles.comingSoonBox}>
+              <Ionicons name="sparkles-outline" size={16} color="#78909C" />
+              <Text style={styles.comingSoonText}>
+                More languages coming soon (Marathi, Gujarati, Punjabi, Odia, Bengali…)
+              </Text>
+            </View>
+          </View>
+
+          <Text style={styles.hint}>
+            💡 You can change your language anytime from app header or Settings.
+          </Text>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -85,85 +121,132 @@ export default function LanguageScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#2E7D32',
+    backgroundColor: BRAND_BG,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
+    paddingBottom: 40,
   },
   header: {
     paddingHorizontal: 24,
-    paddingTop: 60,
+    paddingTop: Platform.OS === 'web' ? 24 : 16,
     paddingBottom: 12,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  iconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: BRAND_COLOR,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   appName: {
     fontSize: 14,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.8)',
+    fontWeight: '800',
+    color: '#E0F2F5',
     letterSpacing: 2,
   },
   divider: {
-    height: 2,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    height: 3,
+    backgroundColor: BRAND_COLOR,
     marginTop: 8,
-    width: 40,
+    width: 36,
+    borderRadius: 2,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 32,
+    paddingHorizontal: 20,
+    paddingTop: 16,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '800',
+    fontSize: 26,
+    fontWeight: '900',
     color: '#FFFFFF',
-    lineHeight: 40,
-    marginBottom: 8,
+    letterSpacing: 0.5,
+    lineHeight: 32,
   },
   subtitle: {
-    fontSize: 18,
-    color: 'rgba(255,255,255,0.7)',
-    marginBottom: 4,
+    fontSize: 14,
+    color: '#A0BCC2',
+    marginTop: 6,
+    fontWeight: '500',
   },
   languageList: {
-    marginTop: 32,
     gap: 12,
+    marginTop: 22,
   },
   languageButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    minHeight: 62,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  languageButtonSelected: {
+    borderColor: BRAND_COLOR,
+    backgroundColor: BRAND_LIGHT,
   },
   languageContent: {
     flex: 1,
   },
   languageNative: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#212121',
+  },
+  languageNativeSelected: {
+    color: BRAND_COLOR,
   },
   languageEnglish: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.6)',
+    fontSize: 12,
+    color: '#607D8B',
     marginTop: 2,
+    fontWeight: '500',
   },
-  languageArrow: {
-    fontSize: 28,
-    color: 'rgba(255,255,255,0.5)',
-    fontWeight: '300',
+  languageEnglishSelected: {
+    color: BRAND_DARK,
+    fontWeight: '600',
   },
-  languageDisabled: {
-    opacity: 0.4,
-    borderStyle: 'dashed',
+  arrowBox: {
+    marginLeft: 12,
   },
-  languageDisabledText: {
-    color: 'rgba(255,255,255,0.5)',
+  comingSoonBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 4,
+  },
+  comingSoonText: {
+    fontSize: 12,
+    color: '#90A4AE',
+    flex: 1,
   },
   hint: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.5)',
     textAlign: 'center',
+    fontSize: 12,
+    color: '#A0BCC2',
     marginTop: 24,
   },
 });

@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { Session, User } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 import { supabase } from '../services/supabase';
 import type {
   Language,
@@ -9,6 +11,22 @@ import type {
   MechanicDocument,
   MechanicBalance,
 } from '@tractor-repair/shared';
+
+const LANGUAGE_STORAGE_KEY = 'tractor_preferred_language';
+
+const getInitialLanguage = (): Language => {
+  if (Platform.OS === 'web') {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const saved = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+        if (saved && ['en', 'te', 'hi', 'kn', 'ta'].includes(saved)) {
+          return saved as Language;
+        }
+      }
+    } catch {}
+  }
+  return 'en';
+};
 
 export interface VerificationChecklist {
   mobileVerified: boolean;
@@ -59,7 +77,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isLoading: true,
   isAuthenticated: false,
-  language: 'en' as Language,
+  language: getInitialLanguage(),
   selectedRole: null,
 
   profile: null,
@@ -189,7 +207,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  setLanguage: (language) => set({ language }),
+  setLanguage: (language) => {
+    set({ language });
+    if (Platform.OS === 'web') {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+        }
+      } catch {}
+    } else {
+      SecureStore.setItemAsync(LANGUAGE_STORAGE_KEY, language).catch(() => {});
+    }
+
+    const currentUserId = get().user?.id || get().session?.user?.id;
+    if (currentUserId) {
+      supabase
+        .from('profiles')
+        .update({ preferred_language: language })
+        .eq('id', currentUserId)
+        .then(({ error }) => {
+          if (error) console.warn('Could not sync language to profile:', error.message);
+        });
+    }
+  },
 
   setServiceRadiusKm: (serviceRadiusKm) =>
     set((state) => ({

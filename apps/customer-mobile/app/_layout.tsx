@@ -60,7 +60,7 @@ export default function RootLayout() {
       <Stack
         screenOptions={{
           headerStyle: {
-            backgroundColor: '#2E7D32',
+            backgroundColor: '#006376',
           },
           headerTintColor: '#fff',
           headerTitleStyle: {
@@ -86,11 +86,7 @@ export default function RootLayout() {
         />
         <Stack.Screen
           name="auth/register"
-          options={{
-            title: 'Mechanic Registration',
-            headerStyle: { backgroundColor: '#1E3A5F' },
-            headerTintColor: '#fff',
-          }}
+          options={{ headerShown: false }}
         />
 
         {/* Customer Stack */}
