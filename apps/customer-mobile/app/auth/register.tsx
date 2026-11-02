@@ -391,7 +391,7 @@ export default function RegisterScreen() {
         if (mechError) console.warn('Mechanic table notice:', mechError);
       }
 
-      // 4. Update Store & Navigate
+      // 4. Update Store & Navigate (Auto-login)
       if (authRes.data?.session) {
         setSession(authRes.data.session);
         setProfile(profileData as any);
@@ -407,11 +407,32 @@ export default function RegisterScreen() {
           }
         }, 600);
       } else {
-        // Email confirmation is required by Supabase settings
-        setSuccessMessage('Account created! Please check your email to confirm your account, then sign in.');
-        setTimeout(() => {
-          router.replace('/auth/sign-in');
-        }, 2000);
+        // Automatically sign in since auto_confirm_user_email trigger has confirmed the account
+        const autoLogin = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password,
+        });
+
+        if (autoLogin.data?.session) {
+          setSession(autoLogin.data.session);
+          setProfile(profileData as any);
+          setSelectedRole(role);
+          await fetchUserProfile(userId);
+
+          setSuccessMessage(t.successReg);
+          setTimeout(() => {
+            if (role === 'mechanic') {
+              router.replace('/mechanic/(tabs)/home');
+            } else {
+              router.replace('/customer/(tabs)/home');
+            }
+          }, 600);
+        } else {
+          setSuccessMessage('Account created successfully! Please sign in.');
+          setTimeout(() => {
+            router.replace('/auth/sign-in');
+          }, 1000);
+        }
       }
     } catch (err: any) {
       setErrorMessage(err?.message || 'Registration failed. Please check network connection.');
