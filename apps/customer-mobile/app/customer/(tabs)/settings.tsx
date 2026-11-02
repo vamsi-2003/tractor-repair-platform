@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +19,8 @@ const LANGUAGES: { code: Language; name: string; native: string }[] = [
   { code: 'en', name: 'English', native: 'English' },
   { code: 'te', name: 'Telugu', native: 'తెలుగు' },
   { code: 'hi', name: 'Hindi', native: 'हिन्दी' },
+  { code: 'kn', name: 'Kannada', native: 'ಕನ್ನಡ' },
+  { code: 'ta', name: 'Tamil', native: 'தமிழ்' },
 ];
 
 export default function SettingsScreen() {
@@ -36,7 +39,13 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    if (Platform.OS === 'web') {
+      await supabase.auth.signOut();
+      reset();
+      router.replace('/language');
+      return;
+    }
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       {

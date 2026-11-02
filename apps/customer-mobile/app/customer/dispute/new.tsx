@@ -8,6 +8,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,16 +34,26 @@ export default function DisputeNewScreen() {
 
   const handleSubmit = async () => {
     if (!description.trim()) {
-      Alert.alert('Details Required', 'Please provide a brief explanation of the problem.');
+      if (Platform.OS === 'web') {
+        window.alert('Please provide a brief explanation of the problem.');
+      } else {
+        Alert.alert('Details Required', 'Please provide a brief explanation of the problem.');
+      }
       return;
     }
 
     setIsSubmitting(true);
     try {
-      if (user?.id) {
+      let reporterId = user?.id;
+      if (!reporterId) {
+        const { data: authData } = await supabase.auth.getUser();
+        reporterId = authData?.user?.id;
+      }
+
+      if (reporterId) {
         const { error } = await supabase.from('support_tickets').insert({
           job_id: currentJob?.id || null,
-          reporter_id: user.id,
+          reporter_id: reporterId,
           subject: selectedCategory,
           description: description.trim(),
           status: 'open',
@@ -52,18 +63,27 @@ export default function DisputeNewScreen() {
         if (error) throw error;
       }
 
-      Alert.alert(
-        'Dispute Registered',
-        'Our support team will review your report, inspect the mechanic and invoice logs, and contact you directly.',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.back(),
-          },
-        ]
-      );
+      if (Platform.OS === 'web') {
+        window.alert('Dispute Registered: Our support team will review your report, inspect the mechanic and invoice logs, and contact you directly.');
+        router.back();
+      } else {
+        Alert.alert(
+          'Dispute Registered',
+          'Our support team will review your report, inspect the mechanic and invoice logs, and contact you directly.',
+          [
+            {
+              text: 'OK',
+              onPress: () => router.back(),
+            },
+          ]
+        );
+      }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to file report. Please try again.');
+      if (Platform.OS === 'web') {
+        window.alert(`Error: ${err.message || 'Failed to file report.'}`);
+      } else {
+        Alert.alert('Error', err.message || 'Failed to file report. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }
