@@ -10,6 +10,7 @@ import {
   Modal,
   ActivityIndicator,
   BackHandler,
+  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -176,6 +177,10 @@ export default function FinishJobScreen() {
       return;
     }
 
+    const wasCashPayment = activeJob?.paymentMethod === 'cash';
+    const earnedAmount = mechanicNet;
+    const feeAmount = platformFee;
+
     setIsCompleting(true);
     try {
       // 1. Trigger server RPC for atomic completion & fee calculation from app_settings
@@ -197,20 +202,27 @@ export default function FinishJobScreen() {
       setIsCompleting(false);
     }
 
-    Alert.alert(
-      'Service Completed!',
-      `Tractor repair successfully completed! You earned ${formatCurrency(mechanicNet)}. ${
-        activeJob.paymentMethod === 'cash'
-          ? `${formatCurrency(platformFee)} platform fee added to ledger.`
-          : 'Payment routed via online escrow.'
-      }`,
-      [
-        {
-          text: 'View Earnings',
-          onPress: () => router.replace('/mechanic/(tabs)/earnings'),
-        },
-      ]
-    );
+    const successMsg = `Tractor repair successfully completed! You earned ${formatCurrency(earnedAmount)}. ${
+      wasCashPayment
+        ? `${formatCurrency(feeAmount)} platform fee added to ledger.`
+        : 'Payment routed via online escrow.'
+    }`;
+
+    if (Platform.OS === 'web') {
+      window.alert(successMsg);
+      router.replace('/mechanic/(tabs)/earnings');
+    } else {
+      Alert.alert(
+        'Service Completed!',
+        successMsg,
+        [
+          {
+            text: 'View Earnings',
+            onPress: () => router.replace('/mechanic/(tabs)/earnings'),
+          },
+        ]
+      );
+    }
   };
 
   return (
