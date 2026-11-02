@@ -34,6 +34,10 @@ export default function LanguageScreen() {
 
   const handleSelectLanguage = (newLanguage: Language) => {
     setLanguage(newLanguage);
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
     if (isAuthenticated) {
       const isMechanic =
         profile?.role === 'mechanic' ||
@@ -56,11 +60,29 @@ export default function LanguageScreen() {
       <StatusBar barStyle="light-content" backgroundColor={BRAND_BG} />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <View style={styles.brandRow}>
-            <View style={styles.iconCircle}>
-              <Ionicons name="globe-outline" size={18} color="#FFFFFF" />
+          <View style={styles.headerTop}>
+            {(router.canGoBack() || isAuthenticated) && (
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => {
+                  if (router.canGoBack()) {
+                    router.back();
+                  } else if (isAuthenticated) {
+                    router.replace('/customer/(tabs)/settings');
+                  }
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+                <Text style={styles.backButtonText}>Back</Text>
+              </TouchableOpacity>
+            )}
+            <View style={styles.brandRow}>
+              <View style={styles.iconCircle}>
+                <Ionicons name="globe-outline" size={18} color="#FFFFFF" />
+              </View>
+              <Text style={styles.appName}>{APP_NAME.toUpperCase()}</Text>
             </View>
-            <Text style={styles.appName}>{APP_NAME.toUpperCase()}</Text>
           </View>
           <View style={styles.divider} />
         </View>
@@ -134,6 +156,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: Platform.OS === 'web' ? 24 : 16,
     paddingBottom: 12,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  backButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
   brandRow: {
     flexDirection: 'row',

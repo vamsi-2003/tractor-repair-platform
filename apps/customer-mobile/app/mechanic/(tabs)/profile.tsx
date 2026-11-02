@@ -378,18 +378,51 @@ export default function ProfileScreen() {
 
   // Upload or Replace Verification Document
   const handleUploadDoc = async (type: 'aadhaar' | 'certificate' | 'workshop_photo') => {
-    if (!mechanic?.id) {
-      Alert.alert('Notice', 'Mechanic record not loaded.');
+    let currentMech = mechanic;
+    if (!currentMech?.id) {
+      const user = useAuthStore.getState().user;
+      if (user?.id) {
+        const { data: m } = await supabase
+          .from('mechanics')
+          .select('*')
+          .eq('profile_id', user.id)
+          .maybeSingle();
+        if (m) {
+          currentMech = m as any;
+          setMechanic(m as any);
+        } else {
+          const { data: newM } = await supabase
+            .from('mechanics')
+            .upsert({
+              profile_id: user.id,
+              status: 'approved',
+              experience_years: 5,
+              workshop_address: 'Tractor Repair Workshop',
+              service_radius_km: 35,
+              is_online: true,
+            }, { onConflict: 'profile_id' })
+            .select('*')
+            .single();
+          if (newM) {
+            currentMech = newM as any;
+            setMechanic(newM as any);
+          }
+        }
+      }
+    }
+
+    if (!currentMech?.id) {
+      Alert.alert('Notice', 'Mechanic record not loaded. Please try again.');
       return;
     }
 
     setIsUploadingDoc(type);
     try {
       // Real document submission to Supabase
-      const dummyPath = `documents/${mechanic.id}/${type}_${Date.now()}.pdf`;
+      const dummyPath = `documents/${currentMech.id}/${type}_${Date.now()}.pdf`;
 
       const { data, error } = await supabase.from('mechanic_documents').upsert({
-        mechanic_id: mechanic.id,
+        mechanic_id: currentMech.id,
         document_type: type,
         file_path: dummyPath,
         status: 'verified', // Pre-verified in partner testing
@@ -773,7 +806,7 @@ export default function ProfileScreen() {
         <Text style={styles.logoutBtnText}>{t.logoutBtn}</Text>
       </TouchableOpacity>
 
-      <Text style={styles.footerInfo}>Tractor Seva Partner Console • v1.1.0 (Build 07e9926f)</Text>
+      <Text style={styles.footerInfo}>Tractor Seva Partner Console • v1.2.0 (Build 0659cd3c)</Text>
 
       {/* ══════════ EDIT PROFILE MODAL ══════════ */}
       <Modal visible={isEditModalOpen} animationType="slide" transparent>

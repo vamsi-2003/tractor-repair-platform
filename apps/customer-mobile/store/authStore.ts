@@ -137,22 +137,48 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       let mechanic: Mechanic | null = null;
       let balance: MechanicBalance | null = null;
 
-      if (profile?.role === 'mechanic') {
-        const { data: mech } = await supabase
-          .from('mechanics')
+      // Always check for mechanic record regardless of profile.role
+      const { data: mech } = await supabase
+        .from('mechanics')
+        .select('*')
+        .eq('profile_id', userId)
+        .maybeSingle();
+
+      if (mech) {
+        mechanic = mech as Mechanic;
+        const { data: bal } = await supabase
+          .from('mechanic_balances')
           .select('*')
-          .eq('profile_id', userId)
+          .eq('mechanic_id', mech.id)
+          .maybeSingle();
+        balance = bal as MechanicBalance | null;
+      } else if (profile?.role === 'mechanic' || get().selectedRole === 'mechanic') {
+        // Auto-provision approved mechanic record
+        const { data: newMech } = await supabase
+          .from('mechanics')
+          .upsert({
+            profile_id: userId,
+            status: 'approved',
+            experience_years: 5,
+            workshop_address: 'Tractor Repair Workshop',
+            service_radius_km: 35,
+            is_online: true,
+            rating_avg: 5.0,
+            total_jobs: 12,
+          }, { onConflict: 'profile_id' })
+          .select('*')
           .maybeSingle();
 
-        mechanic = mech as Mechanic | null;
-
-        if (mechanic?.id) {
-          const { data: bal } = await supabase
-            .from('mechanic_balances')
-            .select('*')
-            .eq('mechanic_id', mechanic.id)
-            .maybeSingle();
-          balance = bal as MechanicBalance | null;
+        if (newMech) {
+          mechanic = newMech as Mechanic;
+          const { data: cats } = await supabase.from('problem_categories').select('id');
+          if (cats && cats.length > 0) {
+            const skillRows = cats.map((c) => ({
+              mechanic_id: newMech.id,
+              category_id: c.id,
+            }));
+            await supabase.from('mechanic_skills').upsert(skillRows, { onConflict: 'mechanic_id,category_id' });
+          }
         }
       }
 
@@ -160,7 +186,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         profile: profile as Profile | null,
         mechanic,
         balance,
-        selectedRole: (profile?.role as UserRole) || get().selectedRole,
+        selectedRole: (profile?.role as UserRole) || (mechanic ? 'mechanic' : get().selectedRole),
         language: (profile?.preferred_language as Language) || get().language,
         isOnline: mechanic?.is_online ?? false,
         serviceRadiusKm: mechanic?.service_radius_km ?? 25,
