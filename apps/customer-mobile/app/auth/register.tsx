@@ -5,626 +5,657 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
   SafeAreaView,
-  Alert,
-  Image,
-  ActivityIndicator,
+  KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
+  StatusBar,
+  ScrollView,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
-import * as Location from 'expo-location';
 import { supabase } from '../../services/supabase';
 import { useAuthStore } from '../../store/authStore';
-import { PROBLEM_CATEGORIES } from '@tractor-repair/shared';
+import { LanguageToggle } from '../../components/LanguageToggle';
 
-interface SkillOption {
-  id: string;
-  name: string;
-  nativeName: string;
-  icon: keyof typeof Ionicons.glyphMap;
-}
+// ─── Theme Constants (Casal Primary Theme) ───────────────────────────
+const BRAND_COLOR = '#006376'; // Casal Teal (Confirmed)
+const BRAND_DARK = '#004957';
+const BRAND_LIGHT = '#EDF8F9';
+const BRAND_ACCENT = '#3AAEEB';
 
-const SKILL_OPTIONS: SkillOption[] = [
-  { id: 'engine', name: 'Engine Repair', nativeName: 'ఇంజన్ / इंजन', icon: 'settings' },
-  { id: 'hydraulics', name: 'Hydraulics & Lift', nativeName: 'హైడ్రాలిక్స్ / हाइड्रोलिक्स', icon: 'water' },
-  { id: 'clutch_gearbox', name: 'Clutch / Gearbox', nativeName: 'క్లచ్ / गियरबॉक्स', icon: 'git-commit' },
-  { id: 'tyres', name: 'Tyres & Brakes', nativeName: 'టైర్లు & బ్రేకులు / टायर और ब्रेक', icon: 'disc' },
-  { id: 'electrical', name: 'Electrical & Wiring', nativeName: 'ఎలక్ట్రికల్ / इलेक्ट्रिकल', icon: 'flash' },
-  { id: 'other', name: 'Other / General Service', nativeName: 'ఇతరం / अन्य', icon: 'build' },
-];
+// ─── 5-Language Dictionary ───────────────────────────────────────────
+const TRANSLATIONS: Record<string, Record<string, string>> = {
+  en: {
+    backBtn: 'Back',
+    title: 'CREATE ACCOUNT',
+    subtitle: 'Join Tractor Seva to get reliable doorstep repair',
+    roleLabel: 'I want to register as:',
+    roleFarmer: '🌾 Farmer / Customer',
+    roleMechanic: '🔧 Tractor Mechanic',
+    usernameLabel: 'Full Name / Username',
+    usernamePlaceholder: 'e.g. Ramesh Patel',
+    emailLabel: 'Email / Gmail',
+    emailPlaceholder: 'e.g. ramesh@gmail.com',
+    phoneLabel: 'Mobile Number',
+    phonePlaceholder: '10-digit mobile number',
+    passwordLabel: 'Password',
+    passwordPlaceholder: 'Create a strong password',
+    confirmPasswordLabel: 'Confirm Password',
+    confirmPasswordPlaceholder: 'Re-enter your password',
+    rulesTitle: 'Password Must Contain:',
+    ruleMinLength: 'At least 8 characters',
+    ruleUpper: '1 uppercase letter (A-Z)',
+    ruleLower: '1 lowercase letter (a-z)',
+    ruleNumber: '1 number (0-9)',
+    ruleSymbol: '1 special symbol (@, #, $, %, etc.)',
+    passwordMatch: 'Passwords match',
+    passwordMismatch: 'Passwords do not match',
+    registerBtn: 'Create Account / Register',
+    haveAccount: 'Already have an account?',
+    signInLink: 'Sign In',
+    errName: 'Please enter your full name.',
+    errEmail: 'Please enter a valid email address.',
+    errPhone: 'Please enter a valid 10-digit mobile number.',
+    errPassword: 'Password does not meet all security conditions.',
+    errConfirmPassword: 'Passwords do not match.',
+    successReg: 'Account created successfully! Logging you in...',
+  },
+  te: {
+    backBtn: 'వెనుకకు',
+    title: 'కొత్త ఖాతా సృష్టించండి',
+    subtitle: 'ట్రాక్టర్ మరమ్మతు సేవల కోసం నమోదు చేసుకోండి',
+    roleLabel: 'మీ పాత్రను ఎంచుకోండి:',
+    roleFarmer: '🌾 రైతు / కస్టమర్',
+    roleMechanic: '🔧 ట్రాక్టర్ మెకానిక్',
+    usernameLabel: 'పూర్తి పేరు / యూజర్‌నేమ్',
+    usernamePlaceholder: 'ఉదా: రమేష్ పటేల్',
+    emailLabel: 'ఇమెయిల్ / జీమెయిల్',
+    emailPlaceholder: 'ఉదా: ramesh@gmail.com',
+    phoneLabel: 'మొబైల్ సంఖ్య',
+    phonePlaceholder: '10 అంకెల మొబైల్ సంఖ్య',
+    passwordLabel: 'పాస్‌వర్డ్',
+    passwordPlaceholder: 'బలమైన పాస్‌వర్డ్ సృష్టించండి',
+    confirmPasswordLabel: 'పాస్‌వర్డ్ నిర్ధారించండి',
+    confirmPasswordPlaceholder: 'పాస్‌వర్డ్ మళ్లీ నమోదు చేయండి',
+    rulesTitle: 'పాస్‌వర్డ్ నిబంధనలు:',
+    ruleMinLength: 'కనీసం 8 అక్షరాలు',
+    ruleUpper: '1 పెద్ద అక్షరం (A-Z)',
+    ruleLower: '1 చిన్న అక్షరం (a-z)',
+    ruleNumber: '1 అంకె (0-9)',
+    ruleSymbol: '1 ప్రత్యేక చిహ్నం (@, #, $, % మొదలైనవి)',
+    passwordMatch: 'పాస్‌వర్డ్‌లు సరిపోలాయి',
+    passwordMismatch: 'పాస్‌వర్డ్‌లు సరిపోలలేదు',
+    registerBtn: 'ఖాతా సృష్టించండి / రిజిస్టర్',
+    haveAccount: 'ఇప్పటికే ఖాతా ఉందా?',
+    signInLink: 'లాగిన్ అవ్వండి',
+    errName: 'దయచేసి మీ పూర్తి పేరు నమోదు చేయండి.',
+    errEmail: 'దయచేసి సరైన ఇమెయిల్ నమోదు చేయండి.',
+    errPhone: 'దయచేసి సరైన 10 అంకెల మొబైల్ సంఖ్య నమోదు చేయండి.',
+    errPassword: 'పాస్‌వర్డ్ అన్ని నిబంధనలను పూర్తి చేయాలి.',
+    errConfirmPassword: 'పాస్‌వర్డ్‌లు సరిపోలలేదు.',
+    successReg: 'ఖాతా విజయవంతంగా సృష్టించబడింది!',
+  },
+  hi: {
+    backBtn: 'वापस',
+    title: 'नया खाता बनाएं',
+    subtitle: 'ट्रैक्टर मरम्मत सेवा के लिए रजिस्टर करें',
+    roleLabel: 'अपनी भूमिका चुनें:',
+    roleFarmer: '🌾 किसान / ग्राहक',
+    roleMechanic: '🔧 ट्रैक्टर मैकेनिक',
+    usernameLabel: 'पूरा नाम / उपयोगकर्ता नाम',
+    usernamePlaceholder: 'उदा: रमेश पटेल',
+    emailLabel: 'ईमेल / जीमेल',
+    emailPlaceholder: 'उदा: ramesh@gmail.com',
+    phoneLabel: 'मोबाइल नंबर',
+    phonePlaceholder: '10 अंकों का मोबाइल नंबर',
+    passwordLabel: 'पासवर्ड',
+    passwordPlaceholder: 'मजबूत पासवर्ड बनाएं',
+    confirmPasswordLabel: 'पासवर्ड की पुष्टि करें',
+    confirmPasswordPlaceholder: 'पासवर्ड दोबारा दर्ज करें',
+    rulesTitle: 'पासवर्ड की शर्तें:',
+    ruleMinLength: 'कम से कम 8 अक्षर',
+    ruleUpper: '1 बड़ा अक्षर (A-Z)',
+    ruleLower: '1 छोटा अक्षर (a-z)',
+    ruleNumber: '1 अंक (0-9)',
+    ruleSymbol: '1 विशेष चिन्ह (@, #, $, % आदि)',
+    passwordMatch: 'पासवर्ड मेल खाते हैं',
+    passwordMismatch: 'पासवर्ड मेल नहीं खाते',
+    registerBtn: 'खाता बनाएं / रजिस्टर करें',
+    haveAccount: 'क्या पहले से खाता है?',
+    signInLink: 'साइन इन करें',
+    errName: 'कृपया अपना पूरा नाम दर्ज करें।',
+    errEmail: 'कृपया मान्य ईमेल पता दर्ज करें।',
+    errPhone: 'कृपया 10 अंकों का मोबाइल नंबर दर्ज करें।',
+    errPassword: 'पासवर्ड सभी सुरक्षा शर्तों को पूरा नहीं करता।',
+    errConfirmPassword: 'पासवर्ड मेल नहीं खाते।',
+    successReg: 'खाता सफलतापूर्वक बनाया गया!',
+  },
+  kn: {
+    backBtn: 'ಹಿಂದೆ',
+    title: 'ಹೊಸ ಖಾತೆ ರಚಿಸಿ',
+    subtitle: 'ಟ್ರ್ಯಾಕ್ಟರ್ ದುರಸ್ತಿ ಸೇವೆಗಾಗಿ ನೋಂದಾಯಿಸಿ',
+    roleLabel: 'ನಿಮ್ಮ ಪಾತ್ರವನ್ನು ಆಯ್ಕೆಮಾಡಿ:',
+    roleFarmer: '🌾 ರೈತ / ಗ್ರಾಹಕ',
+    roleMechanic: '🔧 ಟ್ರ್ಯಾಕ್ಟರ್ ಮೆಕ್ಯಾನಿಕ್',
+    usernameLabel: 'ಪೂರ್ಣ ಹೆಸರು',
+    usernamePlaceholder: 'ಉದಾ: ರಮೇಶ್ ಪಟೇಲ್',
+    emailLabel: 'ಇಮೇಲ್ / ಜಿಮೇಲ್',
+    emailPlaceholder: 'ಉದಾ: ramesh@gmail.com',
+    phoneLabel: 'ಮೊಬೈಲ್ ಸಂಖ್ಯೆ',
+    phonePlaceholder: '10 ಅಂಕಿಗಳ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ',
+    passwordLabel: 'ಪಾಸ್‌ವರ್ಡ್',
+    passwordPlaceholder: 'ಬಲವಾದ ಪಾಸ್‌ವರ್ಡ್ ರಚಿಸಿ',
+    confirmPasswordLabel: 'ಪಾಸ್‌ವರ್ಡ್ ದೃಢೀಕರಿಸಿ',
+    confirmPasswordPlaceholder: 'ಪಾಸ್‌ವರ್ಡ್ ಮರುನಮೂದಿಸಿ',
+    rulesTitle: 'ಪಾಸ್‌ವರ್ಡ್ ನಿಯಮಗಳು:',
+    ruleMinLength: 'ಕನಿಷ್ಠ 8 ಅಕ್ಷರಗಳು',
+    ruleUpper: '1 ದೊಡ್ಡ ಅಕ್ಷರ (A-Z)',
+    ruleLower: '1 ಸಣ್ಣ ಅಕ್ಷರ (a-z)',
+    ruleNumber: '1 ಸಂಖ್ಯೆ (0-9)',
+    ruleSymbol: '1 ವಿಶೇಷ ಚಿಹ್ನೆ (@, #, $ ಇತ್ಯಾದಿ)',
+    passwordMatch: 'ಪಾಸ್‌ವರ್ಡ್‌ಗಳು ಹೊಂದಿಕೆಯಾಗುತ್ತವೆ',
+    passwordMismatch: 'ಪಾಸ್‌ವರ್ಡ್‌ಗಳು ಹೊಂದಿಕೆಯಾಗುವುದಿಲ್ಲ',
+    registerBtn: 'ಖಾತೆ ರಚಿಸಿ / ನೋಂದಾಯಿಸಿ',
+    haveAccount: 'ಈಗಾಗಲೇ ಖಾತೆ ಹೊಂದಿದ್ದೀರಾ?',
+    signInLink: 'ಲಾಗಿನ್ ಆಗಿ',
+    errName: 'ದಯವಿಟ್ಟು ಪೂರ್ಣ ಹೆಸರು ನಮೂದಿಸಿ.',
+    errEmail: 'ದಯವಿಟ್ಟು ಮಾನ್ಯವಾದ ಇಮೇಲ್ ನಮೂದಿಸಿ.',
+    errPhone: 'ದಯವಿಟ್ಟು 10 ಅಂಕಿಗಳ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ನಮೂದಿಸಿ.',
+    errPassword: 'ಪಾಸ್‌ವರ್ಡ್ ಎಲ್ಲಾ ನಿಯಮಗಳನ್ನು ಪೂರೈಸಬೇಕು.',
+    errConfirmPassword: 'ಪಾಸ್‌ವರ್ಡ್‌ಗಳು ಹೊಂದಿಕೆಯಾಗುವುದಿಲ್ಲ.',
+    successReg: 'ಖಾತೆಯನ್ನು ಯಶಸ್ವಿಯಾಗಿ ರಚಿಸಲಾಗಿದೆ!',
+  },
+  ta: {
+    backBtn: 'பின்செல்',
+    title: 'புதிய கணக்கை உருவாக்கவும்',
+    subtitle: 'டிராக்டர் பழுதுபார்ப்பு சேவைகளுக்காக பதிவு செய்க',
+    roleLabel: 'உங்கள் பாத்திரத்தைத் தேர்வுசெய்க:',
+    roleFarmer: '🌾 விவசாயி / வாடிக்கையாளர்',
+    roleMechanic: '🔧 டிராக்டர் மெக்கானிக்',
+    usernameLabel: 'முழு பெயர்',
+    usernamePlaceholder: 'எ.கா: ரமேஷ் படேல்',
+    emailLabel: 'மின்னஞ்சல் / ஜிமெயில்',
+    emailPlaceholder: 'எ.கா: ramesh@gmail.com',
+    phoneLabel: 'கைபேசி எண்',
+    phonePlaceholder: '10 இலக்க கைபேசி எண்',
+    passwordLabel: 'கடவுச்சொல்',
+    passwordPlaceholder: 'வலுவான கடவுச்சொல்லை உருவாக்கவும்',
+    confirmPasswordLabel: 'கடவுச்சொல்லை உறுதிப்படுத்தவும்',
+    confirmPasswordPlaceholder: 'கடவுச்சொல்லை மீண்டும் உள்ளிடவும்',
+    rulesTitle: 'கடவுச்சொல் தேவைகள்:',
+    ruleMinLength: 'குறைந்தது 8 எழுத்துக்கள்',
+    ruleUpper: '1 பெரிய எழுத்து (A-Z)',
+    ruleLower: '1 சிறிய எழுத்து (a-z)',
+    ruleNumber: '1 எண் (0-9)',
+    ruleSymbol: '1 சிறப்பு குறியீடு (@, #, $, % போன்றவை)',
+    passwordMatch: 'கடவுச்சொற்கள் பொருந்துகின்றன',
+    passwordMismatch: 'கடவுச்சொற்கள் பொருந்தவில்லை',
+    registerBtn: 'கணக்கை உருவாக்கவும் / பதிவு செய்க',
+    haveAccount: 'ஏற்கனவே கணக்கு உள்ளதா?',
+    signInLink: 'உள்நுழைக',
+    errName: 'தயவுசெய்து முழு பெயரை உள்ளிடவும்.',
+    errEmail: 'தயவுசெய்து சரியான மின்னஞ்சலை உள்ளிடவும்.',
+    errPhone: 'தயவுசெய்து 10 இலக்க கைபேசி எண்ணை உள்ளிடவும்.',
+    errPassword: 'கடவுச்சொல் அனைத்து நிபந்தனைகளையும் பூர்த்தி செய்ய வேண்டும்.',
+    errConfirmPassword: 'கடவுச்சொற்கள் பொருந்தவில்லை.',
+    successReg: 'கணக்கு வெற்றிகரமாக உருவாக்கப்பட்டது!',
+  },
+};
 
 export default function RegisterScreen() {
-  const { setProfile, setMechanic, setSkills, setDocuments, updateVerification } = useAuthStore();
+  const { language, setSelectedRole, setSession, setProfile, fetchUserProfile } = useAuthStore();
+  const t = TRANSLATIONS[language] || TRANSLATIONS.en;
 
+  // Form Fields
+  const [role, setRole] = useState<'customer' | 'mechanic'>('customer');
   const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [experienceYears, setExperienceYears] = useState('5');
-  const [workshopAddress, setWorkshopAddress] = useState('');
-  const [selectedSkills, setSelectedSkills] = useState<string[]>(['engine', 'hydraulics']);
-  const [documentType, setDocumentType] = useState('aadhaar');
-  const [documentNumber, setDocumentNumber] = useState('');
-  const [idDocumentUri, setIdDocumentUri] = useState<string | null>(null);
-  const [profilePhotoUri, setProfilePhotoUri] = useState<string | null>(null);
-  const [gpsLocation, setGpsLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [isLocating, setIsLocating] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
-  const notifyUser = (title: string, message: string, onOk?: () => void) => {
-    if (Platform.OS === 'web') {
-      window.alert(`${title}: ${message}`);
-      if (onOk) onOk();
-    } else {
-      Alert.alert(title, message, onOk ? [{ text: 'OK', onPress: onOk }] : undefined);
+  // Password Visibility Toggles
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Status & Feedback
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // ─── Live Password Conditions ───────────────────────────────────────
+  const hasMinLength = password.length >= 8;
+  const hasUpperCase = /[A-Z]/.test(password);
+  const hasLowerCase = /[a-z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSpecial = /[!@#$%^&*(),.?":{}|<>_\-=+~`[\]\\]/.test(password);
+  const isPasswordValid = hasMinLength && hasUpperCase && hasLowerCase && hasNumber && hasSpecial;
+
+  const passwordsMatch = password.length > 0 && confirmPassword.length > 0 && password === confirmPassword;
+  const showMatchFeedback = confirmPassword.length > 0;
+
+  const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+
+  // ─── Submit Registration ───────────────────────────────────────────
+  const handleRegister = async () => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    const cleanFullName = fullName.trim();
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanFullName || cleanFullName.length < 2) {
+      setErrorMessage(t.errName);
+      return;
     }
-  };
-
-  const toggleSkill = (id: string) => {
-    setSelectedSkills((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
-    );
-  };
-
-  const handlePickDocument = async (source: 'camera' | 'gallery') => {
-    try {
-      const permission =
-        source === 'camera'
-          ? await ImagePicker.requestCameraPermissionsAsync()
-          : await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (!permission.granted) {
-        notifyUser('Permission Denied', 'Please allow camera/gallery access to upload your verification ID.');
-        return;
-      }
-
-      const result =
-        source === 'camera'
-          ? await ImagePicker.launchCameraAsync({ quality: 0.8, allowsEditing: true })
-          : await ImagePicker.launchImageLibraryAsync({ quality: 0.8, allowsEditing: true });
-
-      if (!result.canceled && result.assets?.[0]?.uri) {
-        setIdDocumentUri(result.assets[0].uri);
-      }
-    } catch (e) {
-      notifyUser('Error', 'Could not open camera/gallery.');
-    }
-  };
-
-  const handlePickProfilePhoto = async () => {
-    try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (!permission.granted) {
-        notifyUser('Permission Denied', 'Camera permission is required to capture your photo.');
-        return;
-      }
-      const result = await ImagePicker.launchCameraAsync({
-        quality: 0.8,
-        allowsEditing: true,
-        aspect: [1, 1],
-      });
-      if (!result.canceled && result.assets?.[0]?.uri) {
-        setProfilePhotoUri(result.assets[0].uri);
-      }
-    } catch (e) {
-      notifyUser('Error', 'Could not capture photo.');
-    }
-  };
-
-  const handleCaptureGps = async () => {
-    setIsLocating(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        notifyUser('Location Denied', 'Location permission is required to pinpoint your workshop.');
-        setIsLocating(false);
-        return;
-      }
-
-      const loc = await Location.getCurrentPositionAsync({});
-      setGpsLocation({
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-      });
-
-      // Reverse geocode to populate address
-      try {
-        if (Platform.OS === 'web') {
-          try {
-            const res = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${loc.coords.latitude}&lon=${loc.coords.longitude}&addressdetails=1`
-            );
-            const data = await res.json();
-            if (data && data.address && !workshopAddress) {
-              const locality =
-                data.address.suburb ||
-                data.address.village ||
-                data.address.town ||
-                data.address.neighbourhood ||
-                '';
-              const districtOrCity =
-                data.address.city ||
-                data.address.county ||
-                data.address.state_district ||
-                '';
-              const state = data.address.state || '';
-              const formatted = [locality, districtOrCity, state].filter(Boolean).join(', ');
-              if (formatted) setWorkshopAddress(formatted);
-            }
-          } catch {
-            // fallback
-          }
-        } else {
-          const [geocode] = await Location.reverseGeocodeAsync({
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude,
-          });
-          if (geocode) {
-            const formatted = [
-              geocode.name,
-              geocode.street,
-              geocode.subregion || geocode.city,
-              geocode.region,
-              geocode.postalCode,
-            ]
-              .filter(Boolean)
-              .join(', ');
-            if (!workshopAddress) {
-              setWorkshopAddress(formatted);
-            }
-          }
-        }
-      } catch (err) {
-        // Fallback
-      }
-      notifyUser('Location Captured', 'Your workshop coordinates have been recorded.');
-    } catch (e) {
-      notifyUser('GPS Error', 'Unable to retrieve location.');
-    } finally {
-      setIsLocating(false);
-    }
-  };
-
-  const CATEGORY_MAP: Record<string, string> = {
-    engine: 'c1000000-0000-0000-0000-000000000001',
-    hydraulics: 'c1000000-0000-0000-0000-000000000002',
-    clutch_gearbox: 'c1000000-0000-0000-0000-000000000003',
-    tyres: 'c1000000-0000-0000-0000-000000000004',
-    electrical: 'c1000000-0000-0000-0000-000000000005',
-    other: 'c1000000-0000-0000-0000-000000000006',
-  };
-
-  const handleSubmit = async () => {
-    const cleanPhone = phone.replace(/\D/g, '').slice(-10);
-
-    if (!fullName.trim() || fullName.trim().length < 3) {
-      notifyUser('Full Name', 'Please enter your full legal name as per ID proof.');
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setErrorMessage(t.errEmail);
       return;
     }
     if (cleanPhone.length !== 10) {
-      notifyUser('Mobile Number', 'Please enter a valid 10-digit mobile number.');
+      setErrorMessage(t.errPhone);
       return;
     }
-    if (selectedSkills.length === 0) {
-      notifyUser('Skills Required', 'Please select at least one repair skill category.');
+    if (!isPasswordValid) {
+      setErrorMessage(t.errPassword);
       return;
     }
-    if (!workshopAddress.trim()) {
-      notifyUser('Workshop Address', 'Please enter your workshop or base service address.');
+    if (!passwordsMatch) {
+      setErrorMessage(t.errConfirmPassword);
       return;
     }
 
-    setIsSubmitting(true);
-
+    setIsLoading(true);
     try {
-      // 1. Resolve or establish active auth user
-      let userId: string;
-      const { data: authData } = await supabase.auth.getUser();
-      if (authData?.user?.id) {
-        userId = authData.user.id;
-      } else {
-        // Auto-provision mechanic auth account using phone
-        const authEmail = `mech_${cleanPhone}@tractorapp.com`;
-        const authPassword = `Password@${cleanPhone}!2026`;
+      // 1. Sign up user via Supabase Auth
+      const { data: authRes, error: authError } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password,
+        options: {
+          data: {
+            full_name: cleanFullName,
+            phone: `+91${cleanPhone}`,
+            role,
+          },
+        },
+      });
 
-        const { data: signInRes } = await supabase.auth.signInWithPassword({
-          email: authEmail,
-          password: authPassword,
-        });
-
-        if (signInRes?.user?.id) {
-          userId = signInRes.user.id;
-        } else {
-          const { data: signUpRes, error: signUpErr } = await supabase.auth.signUp({
-            email: authEmail,
-            password: authPassword,
-            options: {
-              data: {
-                full_name: fullName.trim(),
-                role: 'mechanic',
-                phone: `+91${cleanPhone}`,
-              },
-            },
-          });
-
-          if (signUpErr) {
-            // If already registered with OTP, try sign in with phone OTP or handle
-            console.warn('Sign up notice:', signUpErr);
-          }
-
-          if (signUpRes?.user?.id) {
-            userId = signUpRes.user.id;
-          } else {
-            // Fallback: check if profile with this phone exists in database
-            const { data: existingProf } = await supabase
-              .from('profiles')
-              .select('id')
-              .eq('phone', `+91${cleanPhone}`)
-              .maybeSingle();
-
-            if (existingProf?.id) {
-              userId = existingProf.id;
-            } else {
-              throw new Error(signUpErr?.message || 'Could not create registration account. Please verify mobile.');
-            }
-          }
-        }
+      if (authError) {
+        setErrorMessage(authError.message);
+        return;
       }
 
+      const userId = authRes.user?.id;
+      if (!userId) {
+        setErrorMessage('Failed to obtain user identity. Please try again.');
+        return;
+      }
+
+      // 2. Insert or Upsert into public.profiles
       const profileData = {
         id: userId,
-        role: 'mechanic' as const,
-        full_name: fullName.trim(),
+        role,
+        full_name: cleanFullName,
         phone: `+91${cleanPhone}`,
-        avatar_url: profilePhotoUri || null,
-        preferred_language: 'en',
+        preferred_language: language || 'en',
         is_active: true,
       };
 
-      // 2. Upsert profile
-      const { error: profErr } = await supabase.from('profiles').upsert(profileData);
-      if (profErr) throw profErr;
+      const { error: profError } = await supabase.from('profiles').upsert(profileData);
+      if (profError) {
+        console.warn('Profile creation notice:', profError);
+      }
 
-      // 3. Upsert mechanic record
-      const { data: mechanicRow, error: mechErr } = await supabase
-        .from('mechanics')
-        .upsert(
-          {
-            profile_id: userId,
-            status: 'pending_approval' as const,
-            experience_years: parseInt(experienceYears, 10) || 1,
-            workshop_address: workshopAddress.trim(),
-            service_radius_km: 25,
-            is_online: false,
-            rating_avg: 0,
-            total_jobs: 0,
-          },
-          { onConflict: 'profile_id' }
-        )
-        .select()
-        .single();
-
-      if (mechErr) throw mechErr;
-
-      // 4. Insert skills with UUID mapping
-      if (mechanicRow && selectedSkills.length > 0) {
-        for (const skillId of selectedSkills) {
-          const categoryUuid = CATEGORY_MAP[skillId] || skillId;
-          await supabase.from('mechanic_skills').upsert(
+      // 3. Insert into Role-Specific Table
+      if (role === 'customer') {
+        const { error: custError } = await supabase
+          .from('customers')
+          .upsert({ profile_id: userId }, { onConflict: 'profile_id' });
+        if (custError) console.warn('Customer table notice:', custError);
+      } else {
+        const { error: mechError } = await supabase
+          .from('mechanics')
+          .upsert(
             {
-              mechanic_id: mechanicRow.id,
-              category_id: categoryUuid,
+              profile_id: userId,
+              status: 'pending_approval',
+              experience_years: 3,
+              service_radius_km: 25,
+              is_online: false,
             },
-            { onConflict: 'mechanic_id,category_id' }
+            { onConflict: 'profile_id' }
           );
-        }
+        if (mechError) console.warn('Mechanic table notice:', mechError);
       }
 
-      // 5. Insert documents if uploaded
-      if (mechanicRow && idDocumentUri) {
-        let docFilePath = idDocumentUri;
-        try {
-          const fileName = `documents/${mechanicRow.id}/${Date.now()}_${documentType}.jpg`;
-          const res = await fetch(idDocumentUri);
-          const blob = await res.blob();
-          const { error: uploadErr } = await supabase.storage
-            .from('mechanic-documents')
-            .upload(fileName, blob, { upsert: true });
+      // 4. Update Store & Navigate
+      if (authRes.session) {
+        setSession(authRes.session);
+        setProfile(profileData as any);
+        setSelectedRole(role);
+        await fetchUserProfile(userId);
 
-          if (!uploadErr) {
-            docFilePath = fileName;
+        setSuccessMessage(t.successReg);
+        setTimeout(() => {
+          if (role === 'mechanic') {
+            router.replace('/mechanic/(tabs)/home');
+          } else {
+            router.replace('/customer/(tabs)/home');
           }
-        } catch (uploadErr) {
-          console.warn('Doc storage upload warning:', uploadErr);
-        }
-
-        await supabase.from('mechanic_documents').insert({
-          mechanic_id: mechanicRow.id,
-          document_type: documentType,
-          file_path: docFilePath,
-          status: 'pending' as const,
-        });
+        }, 600);
+      } else {
+        // Email confirmation is required by Supabase settings
+        setSuccessMessage('Account created! Please check your email to confirm your account, then sign in.');
+        setTimeout(() => {
+          router.replace('/auth/sign-in');
+        }, 2000);
       }
-
-      // Update local Zustand store
-      setProfile(profileData as any);
-      setMechanic(mechanicRow as any);
-      setSkills(selectedSkills);
-      updateVerification({
-        mobileVerified: true,
-        idUploaded: !!idDocumentUri,
-        approvalStatus: 'pending_approval',
-      });
-
-      notifyUser(
-        'Application Submitted!',
-        'Your registration and verification documents have been submitted for Admin Review. Approval typically takes 2-4 hours. You can explore the partner app in the meantime.',
-        () => router.replace('/mechanic/(tabs)/home')
-      );
-    } catch (e: any) {
-      console.error('Registration submit error:', e);
-      notifyUser('Submission Error', e?.message || 'Submission failed. Please try again.');
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Registration failed. Please check network connection.');
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Mechanic Partner Registration</Text>
-          <Text style={styles.subtitle}>
-            Join India's tractor repair network. Connect directly with farmers in your mandal.
-          </Text>
-        </View>
-
-        {/* Verification Checklist Banner */}
-        <View style={styles.checklistBanner}>
-          <Text style={styles.checklistTitle}>ONBOARDING PROCESS</Text>
-          <View style={styles.stepRow}>
-            <View style={styles.stepNumActive}><Text style={styles.stepNumText}>1</Text></View>
-            <Text style={styles.stepLabel}>Profile Details</Text>
-            <Ionicons name="arrow-forward" size={14} color="rgba(255,255,255,0.4)" />
-            <View style={styles.stepNum}><Text style={styles.stepNumText}>2</Text></View>
-            <Text style={styles.stepLabel}>ID Verification</Text>
-            <Ionicons name="arrow-forward" size={14} color="rgba(255,255,255,0.4)" />
-            <View style={styles.stepNum}><Text style={styles.stepNumText}>3</Text></View>
-            <Text style={styles.stepLabel}>Admin Approval</Text>
+      <StatusBar barStyle="light-content" backgroundColor={BRAND_COLOR} />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.keyboardView}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          {/* ─── Top Navigation Bar ─── */}
+          <View style={styles.topBar}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.replace('/auth/sign-in')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+              <Text style={styles.backButtonText}>{t.backBtn}</Text>
+            </TouchableOpacity>
+            <LanguageToggle />
           </View>
-        </View>
 
-        {/* Profile Photo */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHeading}>1. MECHANIC PHOTO</Text>
-          <View style={styles.photoRow}>
-            {profilePhotoUri ? (
-              <Image source={{ uri: profilePhotoUri }} style={styles.avatarPreview} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Ionicons name="person" size={36} color="rgba(255,255,255,0.4)" />
+          {/* ─── Header Hero ─── */}
+          <View style={styles.heroSection}>
+            <Text style={styles.brandTitle}>{t.title}</Text>
+            <Text style={styles.brandSubtitle}>{t.subtitle}</Text>
+          </View>
+
+          {/* ─── Main Form Card ─── */}
+          <View style={styles.card}>
+            {/* Error & Success Feedback */}
+            {errorMessage && (
+              <View style={styles.errorBanner}>
+                <Ionicons name="alert-circle" size={18} color="#B71C1C" />
+                <Text style={styles.errorText}>{errorMessage}</Text>
               </View>
             )}
-            <View style={{ flex: 1 }}>
-              <TouchableOpacity
-                style={styles.photoButton}
-                onPress={handlePickProfilePhoto}
-              >
-                <Ionicons name="camera" size={18} color="#FFB300" />
-                <Text style={styles.photoButtonText}>Take Profile Photo</Text>
-              </TouchableOpacity>
-              <Text style={styles.fieldHint}>
-                Clear front-facing photo helps farmers recognize you on-site.
-              </Text>
-            </View>
-          </View>
-        </View>
 
-        {/* Personal Details */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHeading}>2. PERSONAL & WORKSHOP DETAILS</Text>
-
-          <Text style={styles.label}>FULL NAME (AS PER AADHAAR)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter full name"
-            placeholderTextColor="rgba(255,255,255,0.4)"
-            value={fullName}
-            onChangeText={setFullName}
-          />
-
-          <Text style={styles.label}>MOBILE NUMBER (+91)</Text>
-          <View style={styles.phoneRow}>
-            <View style={styles.countryCode}><Text style={styles.countryText}>+91</Text></View>
-            <TextInput
-              style={[styles.input, { flex: 1 }]}
-              keyboardType="phone-pad"
-              maxLength={10}
-              placeholder="10-digit mobile number"
-              placeholderTextColor="rgba(255,255,255,0.4)"
-              value={phone}
-              onChangeText={setPhone}
-            />
-          </View>
-
-          <Text style={styles.label}>YEARS OF REPAIR EXPERIENCE</Text>
-          <TextInput
-            style={styles.input}
-            keyboardType="number-pad"
-            maxLength={2}
-            placeholder="e.g. 8"
-            placeholderTextColor="rgba(255,255,255,0.4)"
-            value={experienceYears}
-            onChangeText={setExperienceYears}
-          />
-
-          <Text style={styles.label}>WORKSHOP / SHED ADDRESS</Text>
-          <TextInput
-            style={[styles.input, { height: 75, textAlignVertical: 'top' }]}
-            multiline
-            placeholder="Shop no, Landmark, Mandal, District"
-            placeholderTextColor="rgba(255,255,255,0.4)"
-            value={workshopAddress}
-            onChangeText={setWorkshopAddress}
-          />
-
-          <TouchableOpacity
-            style={styles.gpsButton}
-            onPress={handleCaptureGps}
-            disabled={isLocating}
-          >
-            {isLocating ? (
-              <ActivityIndicator color="#FFB300" size="small" />
-            ) : (
-              <>
-                <Ionicons name="location" size={18} color="#FFB300" />
-                <Text style={styles.gpsButtonText}>
-                  {gpsLocation ? 'GPS Location Captured ✓' : 'Detect Current GPS Location'}
-                </Text>
-              </>
+            {successMessage && (
+              <View style={styles.successBanner}>
+                <Ionicons name="checkmark-circle" size={18} color="#1B5E20" />
+                <Text style={styles.successText}>{successMessage}</Text>
+              </View>
             )}
-          </TouchableOpacity>
-        </View>
 
-        {/* Skills Multi-Select */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHeading}>3. REPAIR SPECIALIZATIONS & SKILLS</Text>
-          <Text style={styles.fieldHint}>Select all systems you are trained to fix:</Text>
-
-          <View style={styles.skillsGrid}>
-            {SKILL_OPTIONS.map((skill) => {
-              const isSelected = selectedSkills.includes(skill.id);
-              return (
+            {/* 1. Role Selection Pills */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>{t.roleLabel}</Text>
+              <View style={styles.rolePickerRow}>
                 <TouchableOpacity
-                  key={skill.id}
-                  style={[styles.skillChip, isSelected && styles.skillChipSelected]}
-                  onPress={() => toggleSkill(skill.id)}
+                  style={[styles.rolePill, role === 'customer' && styles.rolePillActive]}
+                  onPress={() => setRole('customer')}
                   activeOpacity={0.8}
                 >
-                  <Ionicons
-                    name={skill.icon}
-                    size={20}
-                    color={isSelected ? '#1E3A5F' : '#FFB300'}
-                  />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.skillName, isSelected && styles.skillNameSelected]}>
-                      {skill.name}
-                    </Text>
-                    <Text style={[styles.skillNative, isSelected && styles.skillNativeSelected]}>
-                      {skill.nativeName}
-                    </Text>
-                  </View>
-                  <Ionicons
-                    name={isSelected ? 'checkbox' : 'square-outline'}
-                    size={20}
-                    color={isSelected ? '#1E3A5F' : 'rgba(255,255,255,0.4)'}
-                  />
+                  <Text style={[styles.rolePillText, role === 'customer' && styles.rolePillTextActive]}>
+                    {t.roleFarmer}
+                  </Text>
                 </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
 
-        {/* ID Document Upload */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHeading}>4. ID VERIFICATION DOCUMENT</Text>
-
-          <Text style={styles.label}>DOCUMENT TYPE</Text>
-          <View style={styles.docTypeRow}>
-            {['aadhaar', 'driving_license', 'mechanic_certificate'].map((type) => (
-              <TouchableOpacity
-                key={type}
-                style={[
-                  styles.docTypeButton,
-                  documentType === type && styles.docTypeButtonActive,
-                ]}
-                onPress={() => setDocumentType(type)}
-              >
-                <Text
-                  style={[
-                    styles.docTypeText,
-                    documentType === type && styles.docTypeTextActive,
-                  ]}
-                >
-                  {type === 'aadhaar'
-                    ? 'Aadhaar'
-                    : type === 'driving_license'
-                    ? 'Driving License'
-                    : 'Certificate'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <Text style={styles.label}>DOCUMENT NUMBER (OPTIONAL)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. 5624 8920 1234"
-            placeholderTextColor="rgba(255,255,255,0.4)"
-            value={documentNumber}
-            onChangeText={setDocumentNumber}
-          />
-
-          <View style={styles.docUploadBox}>
-            {idDocumentUri ? (
-              <View style={styles.docPreviewWrap}>
-                <Image source={{ uri: idDocumentUri }} style={styles.docPreview} />
                 <TouchableOpacity
-                  style={styles.reUploadBtn}
-                  onPress={() => setIdDocumentUri(null)}
+                  style={[styles.rolePill, role === 'mechanic' && styles.rolePillActive]}
+                  onPress={() => setRole('mechanic')}
+                  activeOpacity={0.8}
                 >
-                  <Ionicons name="trash-outline" size={16} color="#FF5252" />
-                  <Text style={styles.reUploadText}>Remove & Retake</Text>
+                  <Text style={[styles.rolePillText, role === 'mechanic' && styles.rolePillTextActive]}>
+                    {t.roleMechanic}
+                  </Text>
                 </TouchableOpacity>
               </View>
-            ) : (
-              <View style={styles.docPrompt}>
-                <Ionicons name="cloud-upload-outline" size={36} color="#FFB300" />
-                <Text style={styles.docPromptTitle}>Upload Document Photo</Text>
-                <Text style={styles.docPromptSub}>Clear front image of original ID</Text>
-                <View style={styles.uploadBtnRow}>
-                  <TouchableOpacity
-                    style={styles.uploadBtn}
-                    onPress={() => handlePickDocument('camera')}
-                  >
-                    <Ionicons name="camera" size={18} color="#1E3A5F" />
-                    <Text style={styles.uploadBtnText}>Camera</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.uploadBtn}
-                    onPress={() => handlePickDocument('gallery')}
-                  >
-                    <Ionicons name="images" size={18} color="#1E3A5F" />
-                    <Text style={styles.uploadBtnText}>Gallery</Text>
-                  </TouchableOpacity>
-                </View>
+            </View>
+
+            {/* 2. Full Name / Username */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>{t.usernameLabel}</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons name="person-outline" size={20} color="#78909C" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder={t.usernamePlaceholder}
+                  placeholderTextColor="#90A4AE"
+                  value={fullName}
+                  onChangeText={(val) => {
+                    setFullName(val);
+                    if (errorMessage) setErrorMessage(null);
+                  }}
+                  autoCapitalize="words"
+                />
               </View>
-            )}
+            </View>
+
+            {/* 3. Email / Gmail */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>{t.emailLabel}</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons name="mail-outline" size={20} color="#78909C" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder={t.emailPlaceholder}
+                  placeholderTextColor="#90A4AE"
+                  value={email}
+                  onChangeText={(val) => {
+                    setEmail(val);
+                    if (errorMessage) setErrorMessage(null);
+                  }}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+            </View>
+
+            {/* 4. Mobile Number */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>{t.phoneLabel}</Text>
+              <View style={styles.inputWrapper}>
+                <View style={styles.countryBadge}>
+                  <Text style={styles.countryBadgeText}>+91</Text>
+                </View>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder={t.phonePlaceholder}
+                  placeholderTextColor="#90A4AE"
+                  value={phone}
+                  onChangeText={(val) => {
+                    setPhone(val);
+                    if (errorMessage) setErrorMessage(null);
+                  }}
+                  keyboardType="phone-pad"
+                  maxLength={10}
+                />
+              </View>
+            </View>
+
+            {/* 5. Password with Show/Hide Eye */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>{t.passwordLabel}</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons name="lock-closed-outline" size={20} color="#78909C" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder={t.passwordPlaceholder}
+                  placeholderTextColor="#90A4AE"
+                  value={password}
+                  onChangeText={(val) => {
+                    setPassword(val);
+                    if (errorMessage) setErrorMessage(null);
+                  }}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  style={styles.eyeIconBtn}
+                  onPress={() => setShowPassword(!showPassword)}
+                  activeOpacity={0.7}
+                  accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  <Ionicons
+                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={22}
+                    color="#455A64"
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* ─── Live Password Conditions Checklist ─── */}
+            <View style={styles.conditionsBox}>
+              <Text style={styles.conditionsHeader}>{t.rulesTitle}</Text>
+
+              <View style={styles.conditionRow}>
+                <Ionicons
+                  name={hasMinLength ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={16}
+                  color={hasMinLength ? '#2E7D32' : '#90A4AE'}
+                />
+                <Text style={[styles.conditionText, hasMinLength && styles.conditionTextMet]}>
+                  {t.ruleMinLength}
+                </Text>
+              </View>
+
+              <View style={styles.conditionRow}>
+                <Ionicons
+                  name={hasUpperCase ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={16}
+                  color={hasUpperCase ? '#2E7D32' : '#90A4AE'}
+                />
+                <Text style={[styles.conditionText, hasUpperCase && styles.conditionTextMet]}>
+                  {t.ruleUpper}
+                </Text>
+              </View>
+
+              <View style={styles.conditionRow}>
+                <Ionicons
+                  name={hasLowerCase ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={16}
+                  color={hasLowerCase ? '#2E7D32' : '#90A4AE'}
+                />
+                <Text style={[styles.conditionText, hasLowerCase && styles.conditionTextMet]}>
+                  {t.ruleLower}
+                </Text>
+              </View>
+
+              <View style={styles.conditionRow}>
+                <Ionicons
+                  name={hasNumber ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={16}
+                  color={hasNumber ? '#2E7D32' : '#90A4AE'}
+                />
+                <Text style={[styles.conditionText, hasNumber && styles.conditionTextMet]}>
+                  {t.ruleNumber}
+                </Text>
+              </View>
+
+              <View style={styles.conditionRow}>
+                <Ionicons
+                  name={hasSpecial ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={16}
+                  color={hasSpecial ? '#2E7D32' : '#90A4AE'}
+                />
+                <Text style={[styles.conditionText, hasSpecial && styles.conditionTextMet]}>
+                  {t.ruleSymbol}
+                </Text>
+              </View>
+            </View>
+
+            {/* 6. Confirm Password with Show/Hide Eye */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>{t.confirmPasswordLabel}</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons name="shield-checkmark-outline" size={20} color="#78909C" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder={t.confirmPasswordPlaceholder}
+                  placeholderTextColor="#90A4AE"
+                  value={confirmPassword}
+                  onChangeText={(val) => {
+                    setConfirmPassword(val);
+                    if (errorMessage) setErrorMessage(null);
+                  }}
+                  secureTextEntry={!showConfirmPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  style={styles.eyeIconBtn}
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  activeOpacity={0.7}
+                  accessibilityLabel={showConfirmPassword ? 'Hide password' : 'Show password'}
+                >
+                  <Ionicons
+                    name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={22}
+                    color="#455A64"
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {/* Password Matching Feedback */}
+              {showMatchFeedback && (
+                <View style={styles.matchFeedbackRow}>
+                  <Ionicons
+                    name={passwordsMatch ? 'checkmark-circle' : 'close-circle'}
+                    size={16}
+                    color={passwordsMatch ? '#2E7D32' : '#D32F2F'}
+                  />
+                  <Text style={[styles.matchFeedbackText, { color: passwordsMatch ? '#2E7D32' : '#D32F2F' }]}>
+                    {passwordsMatch ? t.passwordMatch : t.passwordMismatch}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* 7. Register Button */}
+            <TouchableOpacity
+              style={[
+                styles.primaryButton,
+                (!isPasswordValid || !passwordsMatch || cleanPhone.length !== 10 || isLoading) &&
+                  styles.buttonDisabled,
+              ]}
+              onPress={handleRegister}
+              disabled={!isPasswordValid || !passwordsMatch || cleanPhone.length !== 10 || isLoading}
+              activeOpacity={0.85}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.primaryButtonText}>{t.registerBtn}</Text>
+              )}
+            </TouchableOpacity>
+
+            {/* 8. Link to Sign In */}
+            <View style={styles.footerRow}>
+              <Text style={styles.footerText}>{t.haveAccount} </Text>
+              <TouchableOpacity onPress={() => router.replace('/auth/sign-in')} activeOpacity={0.7}>
+                <Text style={styles.footerLinkText}>{t.signInLink}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-
-        {/* Submit Button */}
-        <TouchableOpacity
-          style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
-          onPress={handleSubmit}
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? (
-            <ActivityIndicator color="#1E3A5F" />
-          ) : (
-            <>
-              <Text style={styles.submitText}>Submit for Admin Approval</Text>
-              <Ionicons name="checkmark-done" size={20} color="#1E3A5F" />
-            </>
-          )}
-        </TouchableOpacity>
-
-        <Text style={styles.disclaimer}>
-          By submitting, you agree to Tractor Repair's Partner Terms of Service and 10% platform fee policy on completed repairs.
-        </Text>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -632,335 +663,250 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1E3A5F',
+    backgroundColor: '#0F282D', // Deep background tone complementing Casal
+  },
+  keyboardView: {
+    flex: 1,
   },
   scrollContent: {
-    padding: 20,
-    paddingBottom: 48,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'web' ? 24 : 12,
+    paddingBottom: 40,
+    maxWidth: 520,
+    width: '100%',
+    alignSelf: 'center',
   },
-  header: {
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    marginBottom: 6,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.7)',
-    lineHeight: 18,
-  },
-  checklistBanner: {
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 179, 0, 0.25)',
-  },
-  checklistTitle: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#FFB300',
-    letterSpacing: 1.5,
-    marginBottom: 8,
-  },
-  stepRow: {
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
-  stepNum: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+  backButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 6,
   },
-  stepNumActive: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#FFB300',
+  backButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  heroSection: {
     alignItems: 'center',
-    justifyContent: 'center',
+    marginBottom: 20,
   },
-  stepNumText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#1E3A5F',
-  },
-  stepLabel: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.85)',
-    fontWeight: '600',
-  },
-  section: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-  },
-  sectionHeading: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#FFB300',
+  brandTitle: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#FFFFFF',
     letterSpacing: 1.2,
-    marginBottom: 14,
   },
-  photoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  avatarPreview: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 2,
-    borderColor: '#FFB300',
-  },
-  avatarPlaceholder: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  photoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(255, 179, 0, 0.15)',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#FFB300',
-    alignSelf: 'flex-start',
-    marginBottom: 6,
-  },
-  photoButtonText: {
+  brandSubtitle: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#FFB300',
-  },
-  label: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.75)',
-    letterSpacing: 0.8,
-    marginTop: 12,
-    marginBottom: 6,
-  },
-  fieldHint: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.6)',
-    marginBottom: 10,
-    lineHeight: 16,
-  },
-  input: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  phoneRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  countryCode: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  countryText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  gpsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    paddingVertical: 12,
-    borderRadius: 10,
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 179, 0, 0.3)',
-  },
-  gpsButtonText: {
-    color: '#FFB300',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  skillsGrid: {
-    gap: 10,
+    color: '#A0BCC2',
     marginTop: 4,
+    textAlign: 'center',
   },
-  skillChip: {
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 22,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.15)',
-    gap: 12,
-  },
-  skillChipSelected: {
-    backgroundColor: '#FFB300',
-    borderColor: '#FFA000',
-  },
-  skillName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  skillNameSelected: {
-    color: '#1E3A5F',
-  },
-  skillNative: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.6)',
-  },
-  skillNativeSelected: {
-    color: 'rgba(30,58,95,0.8)',
-    fontWeight: '600',
-  },
-  docTypeRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 8,
-  },
-  docTypeButton: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    paddingVertical: 10,
+    backgroundColor: '#FFEBEE',
+    borderLeftWidth: 4,
+    borderLeftColor: '#D32F2F',
+    padding: 10,
     borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    marginBottom: 16,
+    gap: 8,
   },
-  docTypeButtonActive: {
-    backgroundColor: 'rgba(255, 179, 0, 0.2)',
-    borderColor: '#FFB300',
-  },
-  docTypeText: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.7)',
+  errorText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#B71C1C',
     fontWeight: '600',
   },
-  docTypeTextActive: {
-    color: '#FFB300',
+  successBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    borderLeftWidth: 4,
+    borderLeftColor: '#2E7D32',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 8,
+  },
+  successText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#1B5E20',
+    fontWeight: '600',
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#263238',
+    marginBottom: 6,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F4F7F8',
+    borderWidth: 1.5,
+    borderColor: '#CFD8DC',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+  },
+  inputIcon: {
+    marginRight: 8,
+  },
+  textInput: {
+    flex: 1,
+    height: 48,
+    fontSize: 15,
+    color: '#212121',
+  },
+  eyeIconBtn: {
+    padding: 8,
+  },
+  countryBadge: {
+    paddingRight: 10,
+    marginRight: 8,
+    borderRightWidth: 1,
+    borderRightColor: '#B0BEC5',
+  },
+  countryBadgeText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#37474F',
+  },
+  rolePickerRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  rolePill: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    backgroundColor: '#F0F4F5',
+    borderWidth: 1.5,
+    borderColor: '#CFD8DC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rolePillActive: {
+    backgroundColor: BRAND_LIGHT,
+    borderColor: BRAND_COLOR,
+    borderWidth: 2,
+  },
+  rolePillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#546E7A',
+  },
+  rolePillTextActive: {
+    color: BRAND_COLOR,
     fontWeight: '800',
   },
-  docUploadBox: {
-    marginTop: 12,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 179, 0, 0.3)',
-    borderStyle: 'dashed',
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    padding: 16,
-    alignItems: 'center',
+  conditionsBox: {
+    backgroundColor: '#F5F9FA',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#D8E6E9',
   },
-  docPrompt: {
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  docPromptTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginTop: 8,
-  },
-  docPromptSub: {
+  conditionsHeader: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.6)',
-    marginTop: 2,
-    marginBottom: 12,
-  },
-  uploadBtnRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  uploadBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#FFB300',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  uploadBtnText: {
-    color: '#1E3A5F',
     fontWeight: '700',
-    fontSize: 13,
+    color: '#37474F',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  docPreviewWrap: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  docPreview: {
-    width: '100%',
-    height: 180,
-    borderRadius: 8,
-  },
-  reUploadBtn: {
+  conditionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 10,
+    gap: 8,
+    marginBottom: 4,
   },
-  reUploadText: {
-    color: '#FF5252',
-    fontSize: 13,
+  conditionText: {
+    fontSize: 12,
+    color: '#78909C',
+  },
+  conditionTextMet: {
+    color: '#2E7D32',
     fontWeight: '600',
   },
-  submitButton: {
+  matchFeedbackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+    paddingLeft: 4,
+  },
+  matchFeedbackText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  primaryButton: {
+    backgroundColor: BRAND_COLOR,
+    borderRadius: 12,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    shadowColor: BRAND_COLOR,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 5,
+    elevation: 4,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  footerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    backgroundColor: '#FFB300',
-    borderRadius: 14,
-    paddingVertical: 18,
-    marginTop: 8,
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#ECEFF1',
+    flexWrap: 'wrap',
   },
-  submitButtonDisabled: {
-    opacity: 0.6,
+  footerText: {
+    fontSize: 14,
+    color: '#546E7A',
   },
-  submitText: {
-    color: '#1E3A5F',
-    fontSize: 17,
+  footerLinkText: {
+    fontSize: 14,
     fontWeight: '800',
-  },
-  disclaimer: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.5)',
-    textAlign: 'center',
-    marginTop: 14,
-    lineHeight: 16,
+    color: BRAND_COLOR,
+    textDecorationLine: 'underline',
   },
 });
