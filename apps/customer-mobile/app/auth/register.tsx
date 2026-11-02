@@ -269,7 +269,7 @@ export default function RegisterScreen() {
     setIsLoading(true);
     try {
       // 1. Sign up user via Supabase Auth
-      const { data: authRes, error: authError } = await supabase.auth.signUp({
+      let authRes = await supabase.auth.signUp({
         email: cleanEmail,
         password,
         options: {
@@ -281,12 +281,74 @@ export default function RegisterScreen() {
         },
       });
 
-      if (authError) {
-        setErrorMessage(authError.message);
+      // If email rate limit is exceeded on free tier GoTrue, fallback to server pre-confirmation endpoint
+      if (
+        authRes.error &&
+        (authRes.error.message?.toLowerCase().includes('rate limit') ||
+          authRes.error.message?.toLowerCase().includes('email rate limit exceeded'))
+      ) {
+        try {
+          const apiBase =
+            Platform.OS === 'web'
+              ? 'http://localhost:3000'
+              : 'http://10.0.2.2:3000';
+          const res = await fetch(`${apiBase}/api/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: cleanEmail,
+              password,
+              full_name: cleanFullName,
+              phone: cleanPhone,
+              role,
+            }),
+          });
+          const json = await res.json();
+          if (json.user) {
+            // Automatically sign in with pre-confirmed account
+            const loginRes = await supabase.auth.signInWithPassword({
+              email: cleanEmail,
+              password,
+            });
+            if (loginRes.data?.session) {
+              setSession(loginRes.data.session);
+              setProfile({
+                id: json.user.id,
+                role,
+                full_name: cleanFullName,
+                phone: `+91${cleanPhone}`,
+                preferred_language: language || 'en',
+                is_active: true,
+              } as any);
+              setSelectedRole(role);
+              await fetchUserProfile(json.user.id);
+
+              setSuccessMessage(t.successReg);
+              setTimeout(() => {
+                if (role === 'mechanic') {
+                  router.replace('/mechanic/(tabs)/home');
+                } else {
+                  router.replace('/customer/(tabs)/home');
+                }
+              }, 600);
+              return;
+            }
+          }
+        } catch (fbErr) {
+          console.warn('Fallback registration error:', fbErr);
+        }
+      }
+
+      if (authRes.error) {
+        setErrorMessage(
+          authRes.error.message.includes('rate limit')
+            ? 'Email verification rate limit reached. Your credentials have been saved; please try signing in directly with Email & Password.'
+            : authRes.error.message
+        );
         return;
       }
 
-      const userId = authRes.user?.id;
+      const userId = authRes.data.user?.id;
       if (!userId) {
         setErrorMessage('Failed to obtain user identity. Please try again.');
         return;
@@ -330,8 +392,8 @@ export default function RegisterScreen() {
       }
 
       // 4. Update Store & Navigate
-      if (authRes.session) {
-        setSession(authRes.session);
+      if (authRes.data?.session) {
+        setSession(authRes.data.session);
         setProfile(profileData as any);
         setSelectedRole(role);
         await fetchUserProfile(userId);

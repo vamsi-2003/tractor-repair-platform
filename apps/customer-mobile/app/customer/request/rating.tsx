@@ -66,7 +66,7 @@ export default function RatingScreen() {
           customerId = customerData?.id || null;
         }
 
-        // Insert review
+        // Insert review (PostgreSQL trigger on_review_created_update_stats automatically updates mechanic rating_avg and total_jobs with SECURITY DEFINER)
         await supabase.from('reviews').insert({
           job_id: currentJob.id,
           customer_id: customerId,
@@ -75,26 +75,6 @@ export default function RatingScreen() {
           tags: selectedTags,
           comment: comment.trim() || null,
         });
-
-        // Recalculate mechanic rating and jobs count
-        if (mechanic?.id) {
-          const { data: allReviews } = await supabase
-            .from('reviews')
-            .select('rating')
-            .eq('mechanic_id', mechanic.id);
-
-          if (allReviews && allReviews.length > 0) {
-            const avg =
-              allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
-            await supabase
-              .from('mechanics')
-              .update({
-                rating_avg: avg,
-                total_jobs: (mechanic.totalJobs || 0) + 1,
-              })
-              .eq('id', mechanic.id);
-          }
-        }
       }
 
       if (Platform.OS === 'web') {
@@ -175,7 +155,7 @@ export default function RatingScreen() {
             <Image source={{ uri: mechanic.avatarUrl }} style={styles.avatar} />
           ) : (
             <View style={styles.avatarPlaceholder}>
-              <Ionicons name="person" size={42} color="#C63C14" />
+              <Ionicons name="person" size={42} color="#006376" />
             </View>
           )}
           <Text style={styles.mechanicNameText}>{mechanic?.name || 'Assigned Mechanic'}</Text>
@@ -286,7 +266,7 @@ const styles = StyleSheet.create({
   appTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#C63C14',
+    color: '#006376',
     letterSpacing: 1.5,
   },
   container: {
@@ -299,7 +279,7 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#C63C14',
+    color: '#006376',
     letterSpacing: 1.5,
   },
   headerTitle: {
@@ -323,7 +303,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#FDEEE9',
+    backgroundColor: '#EDF8F9',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -384,8 +364,8 @@ const styles = StyleSheet.create({
     borderColor: '#E0DDD5',
   },
   tagPillSelected: {
-    backgroundColor: '#C63C14',
-    borderColor: '#C63C14',
+    backgroundColor: '#006376',
+    borderColor: '#006376',
   },
   tagText: {
     fontSize: 13,
@@ -406,7 +386,7 @@ const styles = StyleSheet.create({
     color: '#222',
   },
   submitButton: {
-    backgroundColor: '#C63C14', // Terracotta primary button
+    backgroundColor: '#006376', // Casal brand primary button
     borderRadius: 14,
     paddingVertical: 18,
     alignItems: 'center',

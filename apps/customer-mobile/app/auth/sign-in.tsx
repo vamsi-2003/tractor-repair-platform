@@ -72,6 +72,7 @@ const storage = {
 // ─── 5-Language Dictionary ───────────────────────────────────────────
 const TRANSLATIONS: Record<string, Record<string, string>> = {
   en: {
+    backBtn: 'Back',
     customerTitle: 'FARMER / CUSTOMER LOGIN',
     mechanicTitle: 'MECHANIC LOGIN',
     tagline: 'Reliable doorstep tractor repair & assistance',
@@ -106,6 +107,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     resetSent: 'Password reset link sent to your email.',
   },
   te: {
+    backBtn: 'వెనుకకు',
     customerTitle: 'రైతు / కస్టమర్ లాగిన్',
     mechanicTitle: 'మెకానిక్ లాగిన్',
     tagline: 'మీ ట్రాక్టర్‌కు వేగవంతమైన మరమ్మతు సేవలు',
@@ -140,6 +142,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     resetSent: 'పాస్‌వర్డ్ రీసెట్ లింక్ మీ ఇమెయిల్‌కు పంపబడింది.',
   },
   hi: {
+    backBtn: 'वापस',
     customerTitle: 'किसान / ग्राहक लॉगिन',
     mechanicTitle: 'मैकेनिक लॉगिन',
     tagline: 'खेत पर विश्वसनीय ट्रैक्टर मरम्मत सेवा',
@@ -174,6 +177,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     resetSent: 'पासवर्ड रीसेट लिंक आपके ईमेल पर भेज दिया गया है।',
   },
   kn: {
+    backBtn: 'ಹಿಂದೆ',
     customerTitle: 'ರೈತ / ಗ್ರಾಹಕ ಲಾಗಿನ್',
     mechanicTitle: 'ಮೆಕ್ಯಾನಿಕ್ ಲಾಗಿನ್',
     tagline: 'ವಿಶ್ವಾಸಾರ್ಹ ಟ್ರ್ಯಾಕ್ಟರ್ ದುರಸ್ತಿ ಸೇವೆಗಳು',
@@ -208,6 +212,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     resetSent: 'ಪಾಸ್‌ವರ್ಡ್ ಮರುಹೊಂದಿಸುವ ಲಿಂಕ್ ಕಳುಹಿಸಲಾಗಿದೆ.',
   },
   ta: {
+    backBtn: 'பின்செல்',
     customerTitle: 'விவசாயி / வாடிக்கையாளர் உள்நுழைவு',
     mechanicTitle: 'மெக்கானிக் உள்நுழைவு',
     tagline: 'நம்பகமான டிராக்டர் பழுதுபார்ப்பு சேவை',
@@ -579,13 +584,33 @@ export default function SignInScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           {/* ─── Top Header Bar ─── */}
           <View style={styles.topBar}>
-            <View style={styles.badgeRow}>
-              <View style={styles.brandIconContainer}>
-                <Ionicons name="construct" size={18} color="#FFFFFF" />
+            <View style={styles.topLeftGroup}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => {
+                  if (step === 'otp') {
+                    setStep('phone');
+                    setOtp('');
+                    setErrorMessage(null);
+                  } else {
+                    router.canGoBack() ? router.back() : router.replace('/role-select');
+                  }
+                }}
+                activeOpacity={0.7}
+                accessibilityLabel="Go back"
+              >
+                <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
+                <Text style={styles.backButtonText}>{t.backBtn || 'Back'}</Text>
+              </TouchableOpacity>
+
+              <View style={styles.badgeRow}>
+                <View style={styles.brandIconContainer}>
+                  <Ionicons name="construct" size={14} color="#FFFFFF" />
+                </View>
+                <Text style={styles.headerLabel}>
+                  {isMechanic ? t.mechanicTitle : t.customerTitle}
+                </Text>
               </View>
-              <Text style={styles.headerLabel}>
-                {isMechanic ? t.mechanicTitle : t.customerTitle}
-              </Text>
             </View>
             <LanguageToggle />
           </View>
@@ -816,9 +841,28 @@ export default function SignInScreen() {
                   <>
                     <View style={styles.otpHeaderBox}>
                       <Text style={styles.otpHeaderTitle}>{t.enterCodeTitle}</Text>
-                      <Text style={styles.otpHeaderSub}>
-                        {t.codeSentTo} <Text style={styles.boldPhone}>+91 {cleanPhone}</Text>
-                      </Text>
+                      <Text style={styles.otpHeaderSub}>{t.codeSentTo}</Text>
+
+                      {/* Prominent Mobile Number & Quick Edit Badge */}
+                      <View style={styles.phoneEditCard}>
+                        <View style={styles.phoneWithFlag}>
+                          <Ionicons name="call" size={16} color={BRAND_COLOR} />
+                          <Text style={styles.boldPhoneText}>+91 {cleanPhone}</Text>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.editPhoneBadge}
+                          onPress={() => {
+                            setStep('phone');
+                            setOtp('');
+                            setErrorMessage(null);
+                          }}
+                          activeOpacity={0.7}
+                          accessibilityLabel="Edit mobile number"
+                        >
+                          <Ionicons name="pencil" size={13} color="#FFFFFF" />
+                          <Text style={styles.editPhoneBadgeText}>{t.changeNumber || 'Edit'}</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
 
                     {/* 6-Digit OTP Box Grid */}
@@ -879,6 +923,23 @@ export default function SignInScreen() {
                       ) : (
                         <Text style={styles.primaryButtonText}>{t.verifyCode}</Text>
                       )}
+                    </TouchableOpacity>
+
+                    {/* Secondary prominent Edit Mobile Number button */}
+                    <TouchableOpacity
+                      style={styles.secondaryEditPhoneBtn}
+                      onPress={() => {
+                        setStep('phone');
+                        setOtp('');
+                        setErrorMessage(null);
+                      }}
+                      disabled={isLoading}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="arrow-back" size={16} color={BRAND_COLOR} />
+                      <Text style={styles.secondaryEditPhoneBtnText}>
+                        {t.changeNumber || 'Edit Mobile Number'}
+                      </Text>
                     </TouchableOpacity>
                   </>
                 )}
@@ -942,6 +1003,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 20,
+  },
+  topLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 4,
+  },
+  backButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
   badgeRow: {
     flexDirection: 'row',
@@ -1301,6 +1381,60 @@ const styles = StyleSheet.create({
     color: '#78909C',
   },
   resendBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: BRAND_COLOR,
+  },
+  phoneEditCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#EDF8F9',
+    borderWidth: 1.5,
+    borderColor: '#B2D8DE',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginTop: 10,
+    width: '100%',
+  },
+  phoneWithFlag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  boldPhoneText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#004957',
+  },
+  editPhoneBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: BRAND_COLOR,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  editPhoneBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  secondaryEditPhoneBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    marginTop: 8,
+    borderRadius: 10,
+    backgroundColor: '#F0F7F8',
+    borderWidth: 1,
+    borderColor: '#CFE4E7',
+  },
+  secondaryEditPhoneBtnText: {
     fontSize: 13,
     fontWeight: '700',
     color: BRAND_COLOR,
