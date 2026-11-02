@@ -133,4 +133,20 @@ export const hi: TranslationsType = {
   markJobDone: 'काम पूरा चिह्नित करें',
   finishCodeFromCustomer: 'ग्राहक से फ़िनिश कोड दर्ज करें',
   approvedRepairQuote: 'स्वीकृत मरम्मत कोटेशन',
+
+  // Rural UI & Dashboard additions
+  savedTractors: 'सहेजे गए ट्रैक्टर',
+  addTractor: 'ट्रैक्टर जोड़ें',
+  startRequest: 'अनुरोध शुरू करें',
+  requestSubtext: 'GPS के ज़रिए कुछ ही मिनटों में नजदीकी प्रमाणित ट्रैक्टर मैकेनिक से जुड़ें',
+  noSavedTractors: 'अभी तक कोई ट्रैक्टर सहेजा नहीं गया है',
+  addMyTractor: '+ अपना ट्रैक्टर जोड़ें',
+  saveTractorDesc: 'त्वरित 1-टैप मरम्मत अनुरोधों के लिए अपने ट्रैक्टर का मेक और मॉडल सहेजें।',
+  viewAll: 'सभी देखें',
+  secureStartCode: 'आपका सुरक्षित स्टार्ट कोड',
+  secureFinishCode: 'आपका सुरक्षित फ़िनिश कोड',
+  step2Finish: 'चरण 2: पूर्णता और भुगतान',
+  tellStartCodeInstruction: 'मैकेनिक के आपके स्थान पर पहुंचने पर ही यह 6 अंकों का कोड बताएं। इस कोड के बिना काम शुरू नहीं हो सकता।',
+  tellFinishCodeInstruction: 'मरम्मत पूरी होने और आपके ट्रैक्टर का निरीक्षण करने के बाद ही यह 6 अंकों का फ़िनिश कोड मैकेनिक के साथ साझा करें।',
+  viewItemizedBill: 'अंतिम विस्तृत बिल देखें',
 };

@@ -15,11 +15,14 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../services/supabase';
 import { useRepairStore } from '../../../store/repairStore';
+import { useAuthStore } from '../../../store/authStore';
 import { useRealtimeSync } from '../../../hooks/useRealtimeSync';
 import { SpeechSpeaker } from '../../../components/SpeechSpeaker';
-import { APP_NAME } from '@tractor-repair/shared';
+import { LanguageToggle } from '../../../components/LanguageToggle';
+import { APP_NAME, t } from '@tractor-repair/shared';
 
 export default function QuoteApprovalScreen() {
+  const { language } = useAuthStore();
   const { currentJob, setCurrentJob, setQuote, updateJobStatus } = useRepairStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -335,19 +338,35 @@ export default function QuoteApprovalScreen() {
   const partsEstimate = quote?.partsEstimate ?? 0;
   const totalEstimate = quote?.total ?? (visitFee + laborCost + partsEstimate);
 
-  const speechText = `Quote from your mechanic ${mechanic?.name || ''}. Visit charge: ₹${visitFee}. Labor and repair: ₹${laborCost}. Spare parts estimate: ₹${partsEstimate}. Estimated total: ₹${totalEstimate}. Tap approve to start repair, or decline quote.`;
+  const getSpeechPrompt = () => {
+    switch (language) {
+      case 'te':
+        return `మీ మెకానిక్ ${mechanic?.name || ''} ఇచ్చిన రిపేర్ కోట్. విజిట్ ఛార్జ్: ₹${visitFee}. లేబర్ మరియు రిపేర్: ₹${laborCost}. విడిభాగాలు అంచనా: ₹${partsEstimate}. మొత్తం అంచనా: ₹${totalEstimate}. రిపేర్ ప్రారంభించడానికి ఆమోదించండి.`;
+      case 'hi':
+        return `आपके मैकेनिक ${mechanic?.name || ''} का रिपेयर कोट। विजिट शुल्क: ₹${visitFee}। मजदूरी और मरम्मत: ₹${laborCost}। पुर्जों का अनुमान: ₹${partsEstimate}। कुल अनुमान: ₹${totalEstimate}। कार्य शुरू करने के लिए स्वीकार करें।`;
+      case 'kn':
+        return `ನಿಮ್ಮ ಮೆಕ್ಯಾನಿಕ್ ${mechanic?.name || ''} ಅವರಿಂದ ರಿಪೇರಿ ಉಲ್ಲೇಖ. ಭೇಟಿ ಶುಲ್ಕ: ₹${visitFee}. ದುರಸ್ತಿ ವೆಚ್ಚ: ₹${laborCost}. ಬಿಡಿಭಾಗಗಳ ಅಂದಾಜು: ₹${partsEstimate}. ಒಟ್ಟು ಅಂದಾಜು: ₹${totalEstimate}. ಅನುಮೋದಿಸಿ ಮತ್ತು ಪ್ರಾರಂಭಿಸಿ.`;
+      case 'ta':
+        return `உங்கள் மெக்கானிக் ${mechanic?.name || ''} வழங்கிய பழுதுபார்ப்பு மதிப்பீடு. வருகைக் கட்டணம்: ₹${visitFee}. உழைப்பு மற்றும் பழுது: ₹${laborCost}. உதிரிபாகங்கள் மதிப்பீடு: ₹${partsEstimate}. மொத்த மதிப்பீடு: ₹${totalEstimate}. அங்கீகரிக்கவும்.`;
+      default:
+        return `Quote from your mechanic ${mechanic?.name || ''}. Visit charge: ₹${visitFee}. Labor and repair: ₹${laborCost}. Spare parts estimate: ₹${partsEstimate}. Estimated total: ₹${totalEstimate}. Tap approve to start repair, or decline quote.`;
+    }
+  };
 
   return (
     <View style={styles.screenWrapper}>
-      {/* Top Header Bar with Read-Aloud Speaker */}
+      {/* Top Header Bar with Read-Aloud Speaker & Language Switcher */}
       <View style={styles.topHeader}>
         <Text style={styles.appTitle}>{APP_NAME.toUpperCase()}</Text>
-        <SpeechSpeaker text={speechText} label="Read screen" />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <LanguageToggle />
+          <SpeechSpeaker text={getSpeechPrompt()} label="Read screen" />
+        </View>
       </View>
 
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-        <Text style={styles.headerSubtitle}>QUOTE FROM YOUR MECHANIC</Text>
-        <Text style={styles.headerTitle}>APPROVE THE REPAIR{'\n'}QUOTE</Text>
+        <Text style={styles.headerSubtitle}>{t('repairQuote', language).toUpperCase()}</Text>
+        <Text style={styles.headerTitle}>{t('approveQuote', language).toUpperCase()}</Text>
 
         {/* Mechanic Info Card */}
         <View style={styles.mechanicBadge}>
@@ -362,7 +381,7 @@ export default function QuoteApprovalScreen() {
 
         {/* What the Mechanic Found */}
         <View style={styles.card}>
-          <Text style={styles.sectionHeader}>WHAT THE MECHANIC FOUND</Text>
+          <Text style={styles.sectionHeader}>{t('mechanicNotes', language).toUpperCase()}</Text>
           <Text style={styles.notesText}>
             {quote?.mechanicNotes || 'Inspection completed on tractor. Parts and labor estimate prepared below.'}
           </Text>
@@ -370,21 +389,21 @@ export default function QuoteApprovalScreen() {
 
         {/* Cost Breakdown Card (Page 6 of Prototype) */}
         <View style={styles.card}>
-          <Text style={styles.sectionHeader}>COST BREAKDOWN</Text>
+          <Text style={styles.sectionHeader}>{t('repairQuote', language).toUpperCase()}</Text>
 
           <View style={styles.costRow}>
-            <Text style={styles.costLabel}>Visit charge</Text>
+            <Text style={styles.costLabel}>{t('visitCharge', language)}</Text>
             <Text style={styles.costValue}>₹{visitFee.toFixed(2)}</Text>
           </View>
 
           <View style={styles.costRow}>
-            <Text style={styles.costLabel}>Labor & Repair</Text>
+            <Text style={styles.costLabel}>{t('repairLabel', language)}</Text>
             <Text style={styles.costValue}>₹{laborCost.toFixed(2)}</Text>
           </View>
 
           {partsEstimate > 0 && (
             <View style={styles.costRow}>
-              <Text style={styles.costLabel}>Spare parts (estimate)</Text>
+              <Text style={styles.costLabel}>{t('sparePartsLabel', language)}</Text>
               <Text style={styles.costValue}>₹{partsEstimate.toFixed(2)}</Text>
             </View>
           )}
@@ -392,7 +411,7 @@ export default function QuoteApprovalScreen() {
           <View style={styles.divider} />
 
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Estimated Total</Text>
+            <Text style={styles.totalLabel}>{t('totalLabel', language)}</Text>
             <Text style={styles.totalValue}>₹{totalEstimate.toFixed(2)}</Text>
           </View>
         </View>
@@ -413,7 +432,7 @@ export default function QuoteApprovalScreen() {
             ) : (
               <>
                 <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" />
-                <Text style={styles.approveButtonText}>Approve and start repair</Text>
+                <Text style={styles.approveButtonText}>{t('approveAndStart', language)}</Text>
               </>
             )}
           </TouchableOpacity>
@@ -421,12 +440,12 @@ export default function QuoteApprovalScreen() {
           <View style={styles.secondaryRow}>
             <TouchableOpacity style={styles.callButton} onPress={handleCall}>
               <Ionicons name="call-outline" size={18} color="#C63C14" />
-              <Text style={styles.callButtonText}>Call mechanic</Text>
+              <Text style={styles.callButtonText}>{t('callMechanic', language)}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.declineButton} onPress={handleDeclineQuote}>
               <Ionicons name="close-circle-outline" size={18} color="#D32F2F" />
-              <Text style={styles.declineButtonText}>Decline quote</Text>
+              <Text style={styles.declineButtonText}>{t('declineQuote', language)}</Text>
             </TouchableOpacity>
           </View>
         </View>

@@ -13,13 +13,16 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../services/supabase';
 import { useRepairStore } from '../../../store/repairStore';
+import { useAuthStore } from '../../../store/authStore';
 import { SpeechSpeaker } from '../../../components/SpeechSpeaker';
-import { APP_NAME } from '@tractor-repair/shared';
+import { LanguageToggle } from '../../../components/LanguageToggle';
+import { APP_NAME, t } from '@tractor-repair/shared';
 
 // Feature flag for Online Payment (Razorpay test mode)
 const FEATURE_FLAG_ONLINE_PAYMENT = false;
 
 export default function BillScreen() {
+  const { language } = useAuthStore();
   const { currentJob, setFinishCode, updateJobStatus, setQuote } = useRepairStore();
   const [invoice, setInvoice] = useState<{
     id: string;
@@ -248,53 +251,69 @@ export default function BillScreen() {
   const partsAmount = invoice?.partsAmount ?? 0;
   const total = invoice?.total ?? (visitCharge + repairAmount + partsAmount);
 
-  const speechText = `Your repair is done. Here is your bill: Visit charge: ₹${visitCharge}. Repair: ₹${repairAmount}. Spare parts: ₹${partsAmount}. Total: ₹${total}. Your finish code is ${finishCode || 'available'}. Share this finish code only after handing cash to the mechanic.`;
+  const getSpeechPrompt = () => {
+    switch (language) {
+      case 'te':
+        return `మీ ట్రాక్టర్ రిపేర్ పూర్తయింది. మీ తుది బిల్లు: విజిట్ ఛార్జ్: ₹${visitCharge}. రిపేర్: ₹${repairAmount}. విడిభాగాలు: ₹${partsAmount}. మొత్తం: ₹${total}. మీ ముగింపు కోడ్ ${finishCode || 'సిద్ధం'}. మెకానిక్ కు నగదు ఇచ్చిన తర్వాత మాత్రమే ఈ కోడ్ చెప్పండి.`;
+      case 'hi':
+        return `आपकी मरम्मत पूरी हो गई। आपका अंतिम बिल: विजिट शुल्क: ₹${visitCharge}। मरम्मत: ₹${repairAmount}। पुर्जे: ₹${partsAmount}। कुल: ₹${total}। आपका फिनिश कोड ${finishCode || 'तैयार'} है। मैकेनिक को नकद देने के बाद ही यह कोड बताएं।`;
+      case 'kn':
+        return `ನಿಮ್ಮ ಟ್ರ್ಯಾಕ್ಟರ್ ದುರಸ್ತಿ ಮುಗಿದಿದೆ. ನಿಮ್ಮ ಅಂತಿಮ ಬಿಲ್: ಭೇಟಿ ಶುಲ್ಕ: ₹${visitCharge}. ದುರಸ್ತಿ: ₹${repairAmount}. ಬಿಡಿಭಾಗಗಳು: ₹${partsAmount}. ಒಟ್ಟು: ₹${total}. ನಿಮ್ಮ ಮುಕ್ತಾಯ ಕೋಡ್ ${finishCode || 'ಸಿದ್ಧವಾಗಿದೆ'}. ಮೆಕ್ಯಾನಿಕ್‌ಗೆ ಹಣ ನೀಡಿದ ನಂತರವೇ ಈ ಕೋಡ್ ನೀಡಿ.`;
+      case 'ta':
+        return `உங்கள் டிராக்டர் பழுதுபார்ப்பு முடிந்தது. உங்கள் இறுதி பில்: வருகைக் கட்டணம்: ₹${visitCharge}. பழுது: ₹${repairAmount}. உதிரிபாகங்கள்: ₹${partsAmount}. மொத்தம்: ₹${total}. உங்கள் பூர்த்தி குறியீடு ${finishCode || 'தயாராக உள்ளது'}. பணம் செலுத்திய பிறகே இந்த குறியீட்டைப் பகிரவும்.`;
+      default:
+        return `Your repair is done. Here is your bill: Visit charge: ₹${visitCharge}. Repair: ₹${repairAmount}. Spare parts: ₹${partsAmount}. Total: ₹${total}. Your finish code is ${finishCode || 'available'}. Share this finish code only after handing cash to the mechanic.`;
+    }
+  };
 
   return (
     <View style={styles.screenWrapper}>
-      {/* Top Header Bar with Read-Aloud Speaker */}
+      {/* Top Header Bar with Read-Aloud Speaker & Language Switcher */}
       <View style={styles.topHeader}>
         <Text style={styles.appTitle}>{APP_NAME.toUpperCase()}</Text>
-        <SpeechSpeaker text={speechText} label="Read screen" />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <LanguageToggle />
+          <SpeechSpeaker text={getSpeechPrompt()} label="Read screen" />
+        </View>
       </View>
 
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-        <Text style={styles.headerSubtitle}>REPAIR DONE</Text>
-        <Text style={styles.headerTitle}>YOUR FINAL BILL</Text>
+        <Text style={styles.headerSubtitle}>{t('paymentDone', language).toUpperCase()}</Text>
+        <Text style={styles.headerTitle}>{t('yourBill', language).toUpperCase()}</Text>
 
         {/* Itemized Bill Card (Page 7 of Prototype) */}
         <View style={styles.card}>
           <View style={styles.billRow}>
-            <Text style={styles.billLabel}>Visit charge</Text>
+            <Text style={styles.billLabel}>{t('visitChargeLabel', language)}</Text>
             <Text style={styles.billValue}>₹{visitCharge.toFixed(2)}</Text>
           </View>
 
           <View style={styles.billRow}>
-            <Text style={styles.billLabel}>Repair (quote you approved)</Text>
+            <Text style={styles.billLabel}>{t('repairLabel', language)}</Text>
             <Text style={styles.billValue}>₹{repairAmount.toFixed(2)}</Text>
           </View>
 
           <View style={styles.billRow}>
-            <Text style={styles.billLabel}>Spare parts used</Text>
+            <Text style={styles.billLabel}>{t('sparePartsLabel', language)}</Text>
             <Text style={styles.billValue}>₹{partsAmount.toFixed(2)}</Text>
           </View>
 
           <View style={styles.divider} />
 
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total</Text>
+            <Text style={styles.totalLabel}>{t('totalLabel', language)}</Text>
             <Text style={styles.totalValue}>₹{total.toFixed(2)}</Text>
           </View>
         </View>
 
         {/* Finish Code Card (Green Card from Design Page 7) */}
         <View style={styles.finishCodeCard}>
-          <Text style={styles.finishCodeLabel}>FINISH CODE</Text>
+          <Text style={styles.finishCodeLabel}>{t('finishCode', language).toUpperCase()}</Text>
           <View style={styles.finishCodeBox}>
             <Text style={styles.finishCodeText}>{finishCode || '------'}</Text>
           </View>
           <Text style={styles.finishCodeInstruction}>
-            Tell the mechanic this finish code only after you have paid.
+            {t('tellFinishCodeInstruction', language)}
           </Text>
         </View>
 
@@ -312,7 +331,7 @@ export default function BillScreen() {
             <Ionicons name="cash" size={24} color="#C63C14" />
           </View>
           <View style={styles.paymentTextContainer}>
-            <Text style={styles.paymentTitle}>Pay cash to mechanic</Text>
+            <Text style={styles.paymentTitle}>{t('payCash', language)}</Text>
             <Text style={styles.paymentSubtitle}>Hand over ₹{total.toFixed(2)} directly in cash</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#C63C14" />

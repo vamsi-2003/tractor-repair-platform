@@ -9,6 +9,7 @@ import {
   TextInput,
   Alert,
   Switch,
+  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -44,7 +45,12 @@ export default function ProfileScreen() {
     Alert.alert('Updated', `Your dispatch service radius is now set to ${val} km.`);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (Platform.OS === 'web') {
+      await logout();
+      router.replace('/language');
+      return;
+    }
     Alert.alert(
       'Sign Out',
       'Are you sure you want to log out of your Mechanic Partner account?',

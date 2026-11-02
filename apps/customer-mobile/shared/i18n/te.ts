@@ -133,4 +133,20 @@ export const te: TranslationsType = {
   markJobDone: 'పని పూర్తయినట్లు గుర్తించండి',
   finishCodeFromCustomer: 'కస్టమర్ నుండి ముగింపు కోడ్‌ను నమోదు చేయండి',
   approvedRepairQuote: 'ఆమోదించబడిన రిపేర్ కోటేషన్',
+
+  // Rural UI & Dashboard additions
+  savedTractors: 'సేవ్ చేసిన ట్రాక్టర్లు',
+  addTractor: 'ట్రాక్టర్ జోడించండి',
+  startRequest: 'రిపేర్ ప్రారంభించండి',
+  requestSubtext: 'GPS ద్వారా సమీపంలోని ధృవీకరించబడిన ట్రాక్టర్ మెకానిక్ ను వెంటనే కనుగొనండి',
+  noSavedTractors: 'ఇంకా సేవ్ చేసిన ట్రాక్టర్లు లేవు',
+  addMyTractor: '+ నా ట్రాక్టర్ జోడించండి',
+  saveTractorDesc: 'తక్షణ 1-ట్యాప్ రిపేర్ అభ్యర్థనల కోసం మీ ట్రాక్టర్ మేక్ & మోడల్ సేవ్ చేయండి.',
+  viewAll: 'అన్నీ చూడండి',
+  secureStartCode: 'మీ సురక్షిత ప్రారంభ కోడ్',
+  secureFinishCode: 'మీ సురక్షిత ముగింపు కోడ్',
+  step2Finish: 'దశ 2: పూర్తి & చెల్లింపు',
+  tellStartCodeInstruction: 'మెకానిక్ మీ వద్దకు చేరుకున్న తర్వాత మాత్రమే ఈ 6 అంకెల కోడ్‌ను చెప్పండి. ఈ కోడ్ లేకుండా పని ప్రారంభం కాదు.',
+  tellFinishCodeInstruction: 'రిపేర్ పూర్తయి, మీరు ట్రాక్టర్‌ను పరిశీలించిన తర్వాత మాత్రమే ఈ 6 అంకెల ముగింపు కోడ్‌ను మెకానిక్‌తో పంచుకోండి.',
+  viewItemizedBill: 'చివరి బిల్లు చూడండి',
 };

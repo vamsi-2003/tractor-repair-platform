@@ -17,7 +17,7 @@ import { SpeechSpeaker } from '../../../components/SpeechSpeaker';
 import { LanguageToggle } from '../../../components/LanguageToggle';
 import { OfflineBanner } from '../../../components/OfflineBanner';
 import { TractorSelectorModal } from '../../../components/TractorSelectorModal';
-import { APP_NAME } from '@tractor-repair/shared';
+import { APP_NAME, t } from '@tractor-repair/shared';
 
 interface TractorItem {
   id: string;
@@ -37,7 +37,7 @@ interface RequestItem {
 }
 
 export default function CustomerHomeScreen() {
-  const { user, profile } = useAuthStore();
+  const { user, profile, language } = useAuthStore();
   const { setCurrentRequest } = useRepairStore();
 
   const [tractors, setTractors] = useState<TractorItem[]>([]);
@@ -147,7 +147,22 @@ export default function CustomerHomeScreen() {
     }
   };
 
-  const speechText = `Welcome to ${APP_NAME}. You can request a repair, view your saved tractors, or check your repair history.`;
+  const getSpeechPrompt = () => {
+    switch (language) {
+      case 'te':
+        return `ట్రాక్టర్ రిపేర్ కు స్వాగతం. మీరు మెకానిక్ ను పిలవవచ్చు, మీ ట్రాక్టర్లను చూడవచ్చు లేదా రిపేర్ హిస్టరీని తనిఖీ చేయవచ్చు.`;
+      case 'hi':
+        return `ट्रैक्टर मरम्मत में आपका स्वागत है। आप मैकेनिक बुला सकते हैं, अपने सहेजे गए ट्रैक्टर देख सकते हैं या मरम्मत इतिहास देख सकते हैं।`;
+      case 'kn':
+        return `ಟ್ರಾಕ್ಟರ್ ದುರಸ್ತಿಗೆ ಸ್ವಾಗತ. ನೀವು ಮೆಕ್ಯಾನಿಕ್ ಕರೆಯಬಹುದು, ಉಳಿಸಿದ ಟ್ರ್ಯಾಕ್ಟರ್‌ಗಳನ್ನು ನೋಡಬಹುದು ಅಥವಾ ದುರಸ್ತಿ ಇತಿಹಾಸ ಪರಿಶೀಲಿಸಬಹುದು.`;
+      case 'ta':
+        return `டிராக்டர் பழுதுபார்ப்பிற்கு வரவேற்கிறோம். நீங்கள் மெக்கானிக்கை அழைக்கலாம், சேமித்த டிராக்டர்களைப் பார்க்கலாம் அல்லது பழுதுபார்ப்பு வரலாற்றைச் சரிபார்க்கலாம்.`;
+      default:
+        return `Welcome to ${APP_NAME}. You can request a repair, view your saved tractors, or check your repair history.`;
+    }
+  };
+
+  const speechText = getSpeechPrompt();
 
   return (
     <View style={styles.screenWrapper}>
@@ -156,7 +171,9 @@ export default function CustomerHomeScreen() {
       <View style={styles.topHeader}>
         <View style={{ flex: 1 }}>
           <Text style={styles.appTitle}>{APP_NAME.toUpperCase()}</Text>
-          <Text style={styles.welcomeText}>Welcome, {profile?.full_name || 'Farmer'}</Text>
+          <Text style={styles.welcomeText}>
+            {t('welcome', language)}, {profile?.full_name || 'Farmer'}
+          </Text>
         </View>
         <View style={styles.headerActions}>
           <LanguageToggle />
@@ -198,34 +215,34 @@ export default function CustomerHomeScreen() {
           style={styles.newRequestHero}
           onPress={() => router.push('/customer/request/new')}
           accessibilityRole="button"
-          accessibilityLabel="Request nearest mechanic"
+          accessibilityLabel={t('requestMechanic', language)}
         >
           <View style={styles.heroLeft}>
             <View style={styles.heroIconCircle}>
               <Ionicons name="search" size={28} color="#C63C14" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.heroTitle}>Request a Mechanic</Text>
+              <Text style={styles.heroTitle}>{t('requestMechanic', language)}</Text>
               <Text style={styles.heroSubtitle}>
-                GPS dispatch connects you to the nearest verified tractor mechanic in minutes
+                {t('requestSubtext', language)}
               </Text>
             </View>
           </View>
           <View style={styles.heroActionBtn}>
-            <Text style={styles.heroActionBtnText}>START REQUEST</Text>
+            <Text style={styles.heroActionBtnText}>{t('startRequest', language).toUpperCase()}</Text>
             <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
           </View>
         </TouchableOpacity>
 
         {/* Saved Tractors Section */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>SAVED TRACTORS</Text>
+          <Text style={styles.sectionTitle}>{t('savedTractors', language).toUpperCase()}</Text>
           <TouchableOpacity
             style={styles.addTractorBtn}
             onPress={() => setIsTractorModalOpen(true)}
           >
             <Ionicons name="add" size={16} color="#C63C14" />
-            <Text style={styles.addTractorBtnText}>Add Tractor</Text>
+            <Text style={styles.addTractorBtnText}>{t('addTractor', language)}</Text>
           </TouchableOpacity>
         </View>
 
@@ -234,15 +251,15 @@ export default function CustomerHomeScreen() {
         ) : tractors.length === 0 ? (
           <View style={styles.emptyCard}>
             <Ionicons name="car-outline" size={32} color="#AAA" />
-            <Text style={styles.emptyTitle}>No saved tractors yet</Text>
+            <Text style={styles.emptyTitle}>{t('noSavedTractors', language)}</Text>
             <Text style={styles.emptySub}>
-              Save your tractor make & model for instant 1-tap repair requests.
+              {t('saveTractorDesc', language)}
             </Text>
             <TouchableOpacity
               style={styles.emptyActionBtn}
               onPress={() => setIsTractorModalOpen(true)}
             >
-              <Text style={styles.emptyActionBtnText}>+ Add My Tractor</Text>
+              <Text style={styles.emptyActionBtnText}>{t('addMyTractor', language)}</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -266,9 +283,9 @@ export default function CustomerHomeScreen() {
 
         {/* Repair Request History Section */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>REQUEST HISTORY</Text>
+          <Text style={styles.sectionTitle}>{t('repairHistory', language).toUpperCase()}</Text>
           <TouchableOpacity onPress={() => router.push('/customer/(tabs)/history')}>
-            <Text style={styles.viewAllLink}>View all</Text>
+            <Text style={styles.viewAllLink}>{t('viewAll', language)}</Text>
           </TouchableOpacity>
         </View>
 

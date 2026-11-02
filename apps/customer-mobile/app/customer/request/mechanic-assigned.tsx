@@ -17,13 +17,15 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../services/supabase';
 import { useRepairStore } from '../../../store/repairStore';
+import { useAuthStore } from '../../../store/authStore';
 import { useRealtimeSync } from '../../../hooks/useRealtimeSync';
 import { SpeechSpeaker } from '../../../components/SpeechSpeaker';
 import { LanguageToggle } from '../../../components/LanguageToggle';
 import { OfflineBanner } from '../../../components/OfflineBanner';
-import { APP_NAME } from '@tractor-repair/shared';
+import { APP_NAME, t } from '@tractor-repair/shared';
 
 export default function MechanicAssignedScreen() {
+  const { language } = useAuthStore();
   const { currentJob, currentRequest, setCurrentJob, setQuote, setFinishCode, updateJobStatus } = useRepairStore();
   const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
@@ -456,13 +458,40 @@ export default function MechanicAssignedScreen() {
     currentJob?.status === 'quote_approved' || currentJob?.status === 'repair_in_progress';
   const isBillReady = currentJob?.status === 'bill_ready';
 
-  const speechText = isBillReady
-    ? `Repair completed. Your finish code is ${currentJob?.finishCode || 'available'}. Share this finish code only after verifying repair and paying the mechanic.`
-    : isRepairing
-    ? `Mechanic is currently repairing your tractor. Your finish code is ${currentJob?.finishCode || 'available'}. Keep it ready for when the repair finishes.`
-    : `Mechanic assigned for your repair. ${
-        etaMinutes ? `Arrives in approximately ${etaMinutes} minutes.` : 'Heading to your location.'
-      } Your secure start code is ${currentJob?.startCode || 'not ready'}. Tell the mechanic this code only when they arrive.`;
+  const getSpeechPrompt = () => {
+    const sc = currentJob?.startCode || 'not ready';
+    const fc = currentJob?.finishCode || 'available';
+
+    if (isBillReady) {
+      switch (language) {
+        case 'te': return `రిపేర్ పూర్తయింది. మీ ముగింపు కోడ్ ${fc}. పనిని తనిఖీ చేసి, చెల్లించిన తర్వాత మాత్రమే ఈ కోడ్ చెప్పండి.`;
+        case 'hi': return `मरम्मत पूरी हो गई। आपका फ़िनिश कोड ${fc} है। काम की जांच और भुगतान के बाद ही यह कोड साझा करें।`;
+        case 'kn': return `ದುರಸ್ತಿ ಪೂರ್ಣಗೊಂಡಿದೆ. ನಿಮ್ಮ ಮುಕ್ತಾಯ ಕೋಡ್ ${fc}. ಕೆಲಸ ಪರಿಶೀಲಿಸಿ ಪಾವತಿಸಿದ ನಂತರವೇ ಈ ಕೋಡ್ ನೀಡಿ.`;
+        case 'ta': return `பழுதுபார்ப்பு முடிந்தது. உங்கள் முடிவுக் குறியீடு ${fc}. வேலையை ஆய்வு செய்து பணம் செலுத்திய பின்னரே பகிரவும்.`;
+        default: return `Repair completed. Your finish code is ${fc}. Share this finish code only after verifying repair and paying the mechanic.`;
+      }
+    }
+
+    if (isRepairing) {
+      switch (language) {
+        case 'te': return `మెకానిక్ ప్రస్తుతం మీ ట్రాక్టర్ రిపేర్ చేస్తున్నారు. మీ ముగింపు కోడ్ ${fc}. రిపేర్ పూర్తయ్యే వరకు సిద్ధంగా ఉంచుకోండి.`;
+        case 'hi': return `मैकेनिक अभी आपके ट्रैक्टर की मरम्मत कर रहा है। आपका फ़िनिश कोड ${fc} है। काम पूरा होने तक तैयार रखें।`;
+        case 'kn': return `ಮೆಕ್ಯಾನಿಕ್ ಪ್ರಸ್ತುತ ನಿಮ್ಮ ಟ್ರ್ಯಾಕ್ಟರ್ ದುರಸ್ತಿ ಮಾಡುತ್ತಿದ್ದಾರೆ. ನಿಮ್ಮ ಮುಕ್ತಾಯ ಕೋಡ್ ${fc}.`;
+        case 'ta': return `மெக்கானிக் தற்போது உங்கள் டிராக்டரை பழுதுபார்க்கிறார். உங்கள் முடிவுக் குறியீடு ${fc}.`;
+        default: return `Mechanic is currently repairing your tractor. Your finish code is ${fc}. Keep it ready for when the repair finishes.`;
+      }
+    }
+
+    switch (language) {
+      case 'te': return `మీ రిపేర్ కోసం మెకానిక్ నియమించబడ్డారు. మీ సురక్షిత ప్రారంభ కోడ్ ${sc}. మెకానిక్ మీ వద్దకు వచ్చాక మాత్రమే ఈ కోడ్ చెప్పండి.`;
+      case 'hi': return `आपकी मरम्मत के लिए मैकेनिक सौंपा गया है। आपका सुरक्षित स्टार्ट कोड ${sc} है। मैकेनिक के आने पर ही यह कोड बताएं।`;
+      case 'kn': return `ನಿಮ್ಮ ದುರಸ್ತಿಗೆ ಮೆಕ್ಯಾನಿಕ್ ನಿಯೋಜಿಸಲಾಗಿದೆ. ನಿಮ್ಮ ಪ್ರಾರಂಭ ಕೋಡ್ ${sc}. ಮೆಕ್ಯಾನಿಕ್ ತಲುಪಿದಾಗ ಮಾತ್ರ ತಿಳಿಸಿ.`;
+      case 'ta': return `உங்கள் பழுதுபார்ப்புக்கு மெக்கானிக் நியமிக்கப்பட்டார். உங்கள் தொடக்கக் குறியீடு ${sc}.`;
+      default: return `Mechanic assigned for your repair. Your secure start code is ${sc}. Tell the mechanic this code only when they arrive.`;
+    }
+  };
+
+  const speechText = getSpeechPrompt();
 
   return (
     <View style={styles.screenWrapper}>
@@ -531,12 +560,12 @@ export default function MechanicAssignedScreen() {
         {/* Start Code Card: Shown before repair starts */}
         {!isRepairing && !isBillReady && (
           <View style={styles.startCodeCard}>
-            <Text style={styles.startCodeLabel}>YOUR SECURE START CODE</Text>
+            <Text style={styles.startCodeLabel}>{t('secureStartCode', language)}</Text>
             <View style={styles.startCodeBox}>
               <Text style={styles.startCodeText}>{currentJob?.startCode || '------'}</Text>
             </View>
             <Text style={styles.startCodeInstruction}>
-              Tell the mechanic this 6-digit code only when they arrive at your location. Work cannot begin without this code.
+              {t('tellStartCodeInstruction', language)}
             </Text>
           </View>
         )}
@@ -546,14 +575,14 @@ export default function MechanicAssignedScreen() {
           <View style={styles.finishCodeCard}>
             <View style={styles.finishBadge}>
               <Ionicons name="shield-checkmark" size={16} color="#1565C0" />
-              <Text style={styles.finishBadgeText}>STEP 2: COMPLETION & PAYMENT</Text>
+              <Text style={styles.finishBadgeText}>{t('step2Finish', language)}</Text>
             </View>
-            <Text style={styles.finishCodeLabel}>YOUR SECURE FINISH CODE</Text>
+            <Text style={styles.finishCodeLabel}>{t('secureFinishCode', language)}</Text>
             <View style={styles.finishCodeBox}>
               <Text style={styles.finishCodeText}>{currentJob?.finishCode || '------'}</Text>
             </View>
             <Text style={styles.finishCodeInstruction}>
-              Share this 6-digit finish code with the mechanic ONLY after they have completed the repair and you have inspected your tractor.
+              {t('tellFinishCodeInstruction', language)}
             </Text>
 
             <TouchableOpacity
@@ -561,7 +590,7 @@ export default function MechanicAssignedScreen() {
               onPress={() => router.push('/customer/request/bill')}
             >
               <Ionicons name="receipt-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.viewBillCardBtnText}>View Final Itemized Bill</Text>
+              <Text style={styles.viewBillCardBtnText}>{t('viewItemizedBill', language)}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -631,18 +660,18 @@ export default function MechanicAssignedScreen() {
               onPress={() => router.push('/customer/request/bill')}
             >
               <Ionicons name="receipt" size={20} color="#FFFFFF" />
-              <Text style={styles.viewBillActionBtnText}>View Final Bill & Finish Code</Text>
+              <Text style={styles.viewBillActionBtnText}>{t('viewItemizedBill', language)}</Text>
             </TouchableOpacity>
           )}
 
           <TouchableOpacity style={styles.callButton} onPress={handleCall}>
             <Ionicons name="call" size={20} color="#FFFFFF" />
-            <Text style={styles.callButtonText}>Call Mechanic</Text>
+            <Text style={styles.callButtonText}>{t('callMechanic', language)}</Text>
           </TouchableOpacity>
 
           {!isRepairing && !isBillReady && (
             <TouchableOpacity style={styles.cancelButton} onPress={() => setIsCancelModalOpen(true)}>
-              <Text style={styles.cancelButtonText}>Cancel Request</Text>
+              <Text style={styles.cancelButtonText}>{t('cancelRequest', language)}</Text>
             </TouchableOpacity>
           )}
         </View>

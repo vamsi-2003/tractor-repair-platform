@@ -131,6 +131,22 @@ export const en = {
   markJobDone: 'Mark Job Done',
   finishCodeFromCustomer: 'Enter Finish Code from Customer',
   approvedRepairQuote: 'Approved Repair Quote',
+
+  // Rural UI & Dashboard additions
+  savedTractors: 'Saved Tractors',
+  addTractor: 'Add Tractor',
+  startRequest: 'Start Request',
+  requestSubtext: 'GPS dispatch connects you to the nearest verified tractor mechanic in minutes',
+  noSavedTractors: 'No saved tractors yet',
+  addMyTractor: '+ Add My Tractor',
+  saveTractorDesc: 'Save your tractor make & model for instant 1-tap repair requests.',
+  viewAll: 'View all',
+  secureStartCode: 'YOUR SECURE START CODE',
+  secureFinishCode: 'YOUR SECURE FINISH CODE',
+  step2Finish: 'STEP 2: COMPLETION & PAYMENT',
+  tellStartCodeInstruction: 'Tell the mechanic this 6-digit code only when they arrive at your location. Work cannot begin without this code.',
+  tellFinishCodeInstruction: 'Share this 6-digit finish code with the mechanic ONLY after they have completed the repair and you have inspected your tractor.',
+  viewItemizedBill: 'View Final Itemized Bill',
 } as const;
 
 export type TranslationKey = keyof typeof en;

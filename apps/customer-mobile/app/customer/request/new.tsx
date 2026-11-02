@@ -24,7 +24,7 @@ import { LanguageToggle } from '../../../components/LanguageToggle';
 import { OfflineBanner } from '../../../components/OfflineBanner';
 import { VoiceNoteRecorder } from '../../../components/VoiceNoteRecorder';
 import { TractorSelectorModal } from '../../../components/TractorSelectorModal';
-import { APP_NAME } from '@tractor-repair/shared';
+import { APP_NAME, t } from '@tractor-repair/shared';
 
 const CATEGORIES = [
   { id: 'engine', name: 'Engine won\'t start', icon: 'cog', nameTE: 'ఇంజన్ పనిచేయట్లేదు', nameHI: 'इंजन चालू नहीं हो रहा', nameKN: 'ಎಂಜಿನ್ ಸ್ಟಾರ್ಟ್ ಆಗುತ್ತಿಲ್ಲ', nameTA: 'எஞ்சின் ஸ்டார்ட் ஆகவில்லை' },
@@ -368,7 +368,20 @@ export default function NewRequestScreen() {
     }
   };
 
-  const screenSpeechText = `New repair request for ${APP_NAME}. Select your saved tractor, select problem area, speak or type the problem, add photos, confirm your GPS pin, and request nearest mechanic.`;
+  const getScreenSpeechText = () => {
+    switch (language) {
+      case 'te':
+        return `${APP_NAME} కోసం కొత్త రిపేర్ అభ్యర్థన. మీ ట్రాక్టర్, సమస్య ఉన్న భాగం ఎంచుకోండి, వాయిస్ నోట్ లేదా వివరాలు నమోదు చేసి సమీప మెకానిక్ ని అభ్యర్థించండి.`;
+      case 'hi':
+        return `${APP_NAME} के लिए नया मरम्मत अनुरोध। अपना ट्रैक्टर और समस्या का प्रकार चुनें, बोलकर या लिखकर समस्या बताएं, और नजदीकी मैकेनिक का अनुरोध करें।`;
+      case 'kn':
+        return `${APP_NAME} ಗಾಗಿ ಹೊಸ ದುರಸ್ತಿ ವಿನಂತಿ. ನಿಮ್ಮ ಟ್ರ್ಯಾಕ್ಟರ್ ಮತ್ತು ಸಮಸ್ಯೆಯ ಭಾಗವನ್ನು ಆಯ್ಕೆಮಾಡಿ, ವಿವರಗಳನ್ನು ಧ್ವನಿ ಮೂಲಕ ತಿಳಿಸಿ ಮತ್ತು ಹತ್ತಿರದ ಮೆಕ್ಯಾನಿಕ್ ಅನ್ನು ವಿನಂತಿಸಿ.`;
+      case 'ta':
+        return `${APP_NAME} க்கான புதிய பழுதுபார்ப்பு கோரிக்கை. உங்கள் டிராக்டர் மற்றும் பிரச்சனை பகுதியைத் தேர்ந்தெடுத்து, அருகிலுள்ள மெக்கானிக்கைக் கோருங்கள்.`;
+      default:
+        return `New repair request for ${APP_NAME}. Select your saved tractor, select problem area, speak or type the problem, add photos, confirm your GPS pin, and request nearest mechanic.`;
+    }
+  };
 
   return (
     <View style={styles.screenWrapper}>
@@ -377,18 +390,18 @@ export default function NewRequestScreen() {
       <View style={styles.topHeader}>
         <View style={{ flex: 1 }}>
           <Text style={styles.appTitle}>{APP_NAME.toUpperCase()}</Text>
-          <Text style={styles.screenSubtitle}>NEW REPAIR REQUEST</Text>
+          <Text style={styles.screenSubtitle}>{t('newRequest', language).toUpperCase()}</Text>
         </View>
         <View style={styles.headerActions}>
           <LanguageToggle />
-          <SpeechSpeaker text={screenSpeechText} label="Read screen" />
+          <SpeechSpeaker text={getScreenSpeechText()} label="Read screen" />
         </View>
       </View>
 
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
         {/* Saved Tractor Selector Card */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>YOUR TRACTOR</Text>
+          <Text style={styles.sectionLabel}>{t('tractorMakeModel', language).toUpperCase()}</Text>
           {selectedTractor ? (
             <TouchableOpacity
               style={styles.tractorSelectedCard}
@@ -413,14 +426,14 @@ export default function NewRequestScreen() {
               onPress={() => setIsTractorModalVisible(true)}
             >
               <Ionicons name="add-circle-outline" size={22} color="#C63C14" />
-              <Text style={styles.tractorSelectButtonText}>Select or Add Saved Tractor</Text>
+              <Text style={styles.tractorSelectButtonText}>{t('addTractor', language)}</Text>
             </TouchableOpacity>
           )}
         </View>
 
         {/* Problem Area Grid (6 categories matching prototype) */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>PROBLEM AREA</Text>
+          <Text style={styles.sectionLabel}>{t('problemArea', language).toUpperCase()}</Text>
           <View style={styles.categoryGrid}>
             {CATEGORIES.map((cat) => {
               const isSelected = selectedCategory === cat.id;
@@ -463,7 +476,7 @@ export default function NewRequestScreen() {
 
         {/* Speak Problem (Voice Note Recording) */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>SPEAK PROBLEM (VOICE NOTE)</Text>
+          <Text style={styles.sectionLabel}>{t('speakProblem', language).toUpperCase()}</Text>
           <Text style={styles.fieldHint}>
             Record up to 60 seconds describing abnormal sound or smoke for the mechanic:
           </Text>
@@ -481,7 +494,7 @@ export default function NewRequestScreen() {
 
         {/* Type Problem Description */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>DESCRIBE PROBLEM (OPTIONAL)</Text>
+          <Text style={styles.sectionLabel}>{t('whatsWrong', language).toUpperCase()}</Text>
           <TextInput
             style={styles.textArea}
             placeholder="What happened? When did it start? What abnormal sounds do you hear?"
@@ -495,7 +508,7 @@ export default function NewRequestScreen() {
 
         {/* Photos / Video */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>PHOTOS / VIDEO (OPTIONAL)</Text>
+          <Text style={styles.sectionLabel}>{t('addPhotos', language).toUpperCase()}</Text>
           <View style={styles.mediaRow}>
             <TouchableOpacity style={styles.mediaBtn} onPress={handleTakePhoto}>
               <Ionicons name="camera" size={20} color="#C63C14" />
@@ -527,9 +540,9 @@ export default function NewRequestScreen() {
         {/* GPS Pin with Move Pin */}
         <View style={styles.sectionCard}>
           <View style={styles.locationHeaderRow}>
-            <Text style={styles.sectionLabel}>TRACTOR LOCATION (GPS PIN)</Text>
+            <Text style={styles.sectionLabel}>{t('tractorLocation', language).toUpperCase()}</Text>
             <TouchableOpacity onPress={() => setIsMovePinOpen(true)}>
-              <Text style={styles.movePinLink}>Move pin</Text>
+              <Text style={styles.movePinLink}>{t('movePin', language)}</Text>
             </TouchableOpacity>
           </View>
 
@@ -587,7 +600,7 @@ export default function NewRequestScreen() {
           ) : (
             <>
               <Ionicons name="search" size={22} color="#FFFFFF" style={{ marginRight: 8 }} />
-              <Text style={styles.submitButtonText}>Request nearest mechanic</Text>
+              <Text style={styles.submitButtonText}>{t('requestMechanic', language)}</Text>
             </>
           )}
         </TouchableOpacity>

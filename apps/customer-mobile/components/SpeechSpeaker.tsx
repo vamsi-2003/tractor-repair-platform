@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { TouchableOpacity, StyleSheet, Platform, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
 import { useAuthStore } from '../store/authStore';
@@ -40,17 +40,65 @@ export function SpeechSpeaker({
     }
   };
 
+  // Clean up speech on unmount
+  useEffect(() => {
+    return () => {
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      } else {
+        Speech.stop().catch(() => {});
+      }
+    };
+  }, []);
+
   const handleToggleSpeak = async () => {
+    if (!actualText.trim()) return;
+
+    const langTag = getLanguageTag();
+
+    // 1. Direct Web Speech API support for seamless browser execution
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      if (window.speechSynthesis.speaking || isSpeaking) {
+        window.speechSynthesis.cancel();
+        setIsSpeaking(false);
+        return;
+      }
+
+      window.speechSynthesis.cancel(); // Stop any pending utterances
+      const utterance = new SpeechSynthesisUtterance(actualText);
+      utterance.lang = langTag;
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+
+      // Find best matching voice for Indian languages if available
+      const voices = window.speechSynthesis.getVoices();
+      const matchedVoice = voices.find((v) => v.lang === langTag || v.lang.startsWith(langTag.split('-')[0]));
+      if (matchedVoice) {
+        utterance.voice = matchedVoice;
+      }
+
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = (err) => {
+        console.warn('Web speech synthesis notice:', err);
+        setIsSpeaking(false);
+      };
+
+      setIsSpeaking(true);
+      window.speechSynthesis.speak(utterance);
+      return;
+    }
+
+    // 2. Mobile Native execution (Expo Speech)
     try {
       const speaking = await Speech.isSpeakingAsync();
       if (speaking || isSpeaking) {
         await Speech.stop();
         setIsSpeaking(false);
       } else {
-        if (!actualText.trim()) return;
         setIsSpeaking(true);
         Speech.speak(actualText, {
-          language: getLanguageTag(),
+          language: langTag,
           rate: 0.88,
           pitch: 1.0,
           onDone: () => setIsSpeaking(false),
@@ -59,18 +107,18 @@ export function SpeechSpeaker({
         });
       }
     } catch (e) {
-      console.warn('Text-to-speech notice:', e);
+      console.warn('Native speech notice:', e);
       setIsSpeaking(false);
     }
   };
 
   return (
     <TouchableOpacity
-      style={styles.button}
+      style={[styles.button, isSpeaking && styles.buttonActive]}
       onPress={handleToggleSpeak}
       activeOpacity={0.7}
       accessibilityRole="button"
-      accessibilityLabel="Read screen aloud"
+      accessibilityLabel={label}
     >
       <Ionicons
         name={isSpeaking ? 'volume-high' : 'volume-medium-outline'}
@@ -87,5 +135,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  buttonActive: {
+    backgroundColor: '#FFF3E0',
   },
 });

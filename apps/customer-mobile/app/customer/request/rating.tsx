@@ -18,18 +18,12 @@ import { supabase } from '../../../services/supabase';
 import { useRepairStore } from '../../../store/repairStore';
 import { useAuthStore } from '../../../store/authStore';
 import { SpeechSpeaker } from '../../../components/SpeechSpeaker';
-import { APP_NAME } from '@tractor-repair/shared';
-
-const FEEDBACK_TAGS = [
-  { id: 'arrived_on_time', label: 'Arrived on time' },
-  { id: 'fixed_properly', label: 'Fixed it properly' },
-  { id: 'fair_price', label: 'Fair price' },
-  { id: 'polite', label: 'Polite' },
-];
+import { LanguageToggle } from '../../../components/LanguageToggle';
+import { APP_NAME, t } from '@tractor-repair/shared';
 
 export default function RatingScreen() {
   const { currentJob, reset: resetRepair } = useRepairStore();
-  const { user } = useAuthStore();
+  const { user, language } = useAuthStore();
 
   const [rating, setRating] = useState(5);
   const [selectedTags, setSelectedTags] = useState<string[]>(['fixed_properly']);
@@ -135,20 +129,43 @@ export default function RatingScreen() {
     router.push('/customer/dispute/new');
   };
 
-  const speechText = `Payment done. How was your mechanic ${mechanic?.name || ''}? Select star rating, highlight what went well, add optional comments, and submit. Or report a problem instead.`;
+  const feedbackTags = [
+    { id: 'arrived_on_time', label: t('arrivedOnTime', language) },
+    { id: 'fixed_properly', label: t('fixedProperly', language) },
+    { id: 'fair_price', label: t('fairPrice', language) },
+    { id: 'polite', label: t('polite', language) },
+  ];
+
+  const getSpeechPrompt = () => {
+    switch (language) {
+      case 'te':
+        return `చెల్లింపు పూర్తయింది. మీ మెకానిక్ ${mechanic?.name || ''} సేవ ఎలా ఉంది? స్టార్ రేటింగ్ ఎంచుకోండి, బాగున్న అంశాలను గుర్తించండి మరియు సమర్పించండి.`;
+      case 'hi':
+        return `भुगतान संपन्न हुआ। आपके मैकेनिक ${mechanic?.name || ''} की सेवा कैसी रही? स्टार रेटिंग चुनें, क्या अच्छा लगा बताएं और सबमिट करें।`;
+      case 'kn':
+        return `ಪಾವತಿ ಪೂರ್ಣಗೊಂಡಿದೆ. ನಿಮ್ಮ ಮೆಕ್ಯಾನಿಕ್ ${mechanic?.name || ''} ಸೇವೆ ಹೇಗಿತ್ತು? ರೇಟಿಂಗ್ ಆಯ್ಕೆಮಾಡಿ, ನಿಮ್ಮ ಅಭಿಪ್ರಾಯ ಹಂಚಿಕೊಳ್ಳಿ ಮತ್ತು ಸಲ್ಲಿಸಿ.`;
+      case 'ta':
+        return `பணம் செலுத்தப்பட்டது. உங்கள் மெக்கானிக் ${mechanic?.name || ''} சேவை எவ்வாறு இருந்தது? மதிப்பீட்டைத் தேர்ந்தெடுத்து சமர்ப்பிக்கவும்.`;
+      default:
+        return `Payment done. How was your mechanic ${mechanic?.name || ''}? Select star rating, highlight what went well, add optional comments, and submit. Or report a problem instead.`;
+    }
+  };
 
   return (
     <View style={styles.screenWrapper}>
-      {/* Top Header Bar with Read-Aloud Speaker */}
+      {/* Top Header Bar with Read-Aloud Speaker & Language Switcher */}
       <View style={styles.topHeader}>
         <Text style={styles.appTitle}>{APP_NAME.toUpperCase()}</Text>
-        <SpeechSpeaker text={speechText} label="Read screen" />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <LanguageToggle />
+          <SpeechSpeaker text={getSpeechPrompt()} label="Read screen" />
+        </View>
       </View>
 
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-        <Text style={styles.headerSubtitle}>PAYMENT DONE</Text>
+        <Text style={styles.headerSubtitle}>{t('paymentDone', language).toUpperCase()}</Text>
         <Text style={styles.headerTitle}>
-          HOW WAS{'\n'}
+          {t('howWas', language).toUpperCase()}{'\n'}
           {mechanic?.name?.toUpperCase() || 'YOUR MECHANIC'}?
         </Text>
 
@@ -167,7 +184,7 @@ export default function RatingScreen() {
 
         {/* 5-Star Rating Card */}
         <View style={styles.ratingCard}>
-          <Text style={styles.sectionTitle}>Your rating</Text>
+          <Text style={styles.sectionTitle}>{t('yourRating', language)}</Text>
           <View style={styles.starsRow}>
             {[1, 2, 3, 4, 5].map((star) => (
               <TouchableOpacity
@@ -189,9 +206,9 @@ export default function RatingScreen() {
 
         {/* What Went Well Feedback Tags */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>What went well?</Text>
+          <Text style={styles.sectionTitle}>{t('whatWentWell', language)}</Text>
           <View style={styles.tagsContainer}>
-            {FEEDBACK_TAGS.map((tag) => {
+            {feedbackTags.map((tag) => {
               const isSelected = selectedTags.includes(tag.id);
               return (
                 <TouchableOpacity
@@ -217,7 +234,7 @@ export default function RatingScreen() {
 
         {/* Comments Box */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Anything else? (optional)</Text>
+          <Text style={styles.sectionTitle}>{t('anythingElse', language)}</Text>
           <TextInput
             style={styles.textArea}
             placeholder="Share any comments on how the tractor was fixed..."
@@ -238,13 +255,13 @@ export default function RatingScreen() {
           {isSubmitting ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.submitButtonText}>Submit rating</Text>
+            <Text style={styles.submitButtonText}>{t('submitRating', language)}</Text>
           )}
         </TouchableOpacity>
 
         {/* Report a Problem Link */}
         <TouchableOpacity style={styles.reportButton} onPress={handleReportProblem}>
-          <Text style={styles.reportText}>Report a problem instead</Text>
+          <Text style={styles.reportText}>{t('reportProblem', language)}</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
