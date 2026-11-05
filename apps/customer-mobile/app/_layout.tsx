@@ -89,10 +89,20 @@ export default function RootLayout() {
           options={{ headerShown: false }}
         />
 
+        {/* Common Screens */}
+        <Stack.Screen
+          name="about"
+          options={{ title: 'About Tractor Seva', headerShown: false }}
+        />
+
         {/* Customer Stack */}
         <Stack.Screen
           name="customer/(tabs)"
           options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="customer/settings/profile-edit"
+          options={{ title: 'Farmer Profile', headerShown: false }}
         />
         <Stack.Screen
           name="customer/request/new"
@@ -131,6 +141,26 @@ export default function RootLayout() {
         <Stack.Screen
           name="mechanic/(tabs)"
           options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="mechanic/settings/profile-edit"
+          options={{ title: 'Mechanic Profile', headerShown: false }}
+        />
+        <Stack.Screen
+          name="mechanic/settings/documents"
+          options={{ title: 'Verification Documents', headerShown: false }}
+        />
+        <Stack.Screen
+          name="mechanic/settings/skills"
+          options={{ title: 'Active Repair Skills', headerShown: false }}
+        />
+        <Stack.Screen
+          name="mechanic/settings/radius"
+          options={{ title: 'Service Radius', headerShown: false }}
+        />
+        <Stack.Screen
+          name="mechanic/settings/availability"
+          options={{ title: 'Service Availability', headerShown: false }}
         />
         <Stack.Screen
           name="mechanic/job/incoming-request"

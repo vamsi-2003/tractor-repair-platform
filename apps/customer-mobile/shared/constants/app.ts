@@ -4,7 +4,7 @@ import type { JobStatus } from '../types/database';
 // APP IDENTITY
 // ============================================================================
 
-export const APP_NAME = "AppName";
+export const APP_NAME = "Tractor Seva";
 
 // ============================================================================
 // JOB STATUS TRANSITIONS

@@ -49,7 +49,7 @@
       [
         "expo-av",
         {
-          "microphonePermission": "Allow AppName to record voice descriptions of your tractor problem."
+          "microphonePermission": "Allow Tractor Seva to record voice descriptions of your tractor problem."
         }
       ]
     ],
