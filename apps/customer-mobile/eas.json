@@ -23,7 +23,7 @@
     "production": {
       "pnpm": "9.15.5",
       "android": {
-        "buildType": "apk"
+        "buildType": "app-bundle"
       },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://clkukpyeqphgeaiikaru.supabase.co",

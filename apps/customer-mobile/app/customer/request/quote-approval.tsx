@@ -17,6 +17,7 @@ import { supabase } from '../../../services/supabase';
 import { useRepairStore } from '../../../store/repairStore';
 import { useAuthStore } from '../../../store/authStore';
 import { useRealtimeSync } from '../../../hooks/useRealtimeSync';
+import { useDebounceCallback } from '../../../utils/debounce';
 import { SpeechSpeaker } from '../../../components/SpeechSpeaker';
 import { LanguageToggle } from '../../../components/LanguageToggle';
 import { APP_NAME, t } from '@tractor-repair/shared';
@@ -261,6 +262,8 @@ export default function QuoteApprovalScreen() {
     }
   };
 
+  const debouncedApproveQuote = useDebounceCallback(handleApproveQuote, 1200);
+
   const handleDeclineQuote = () => {
     const isArrived = currentJob?.status === 'started' || currentJob?.status === 'repair_in_progress' || !!currentJob?.startCode;
     const visitCharge = quote?.visitFee || 200;
@@ -424,7 +427,7 @@ export default function QuoteApprovalScreen() {
         <View style={styles.actionContainer}>
           <TouchableOpacity
             style={[styles.approveButton, isSubmitting && styles.buttonDisabled]}
-            onPress={handleApproveQuote}
+            onPress={debouncedApproveQuote}
             disabled={isSubmitting}
           >
             {isSubmitting ? (

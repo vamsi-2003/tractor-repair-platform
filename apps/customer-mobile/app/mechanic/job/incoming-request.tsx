@@ -16,6 +16,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import { useJobStore } from '../../../store/jobStore';
+import { useDebounceCallback } from '../../../utils/debounce';
 import { formatDistance, formatDuration } from '@tractor-repair/shared';
 
 const { width } = Dimensions.get('window');
@@ -128,6 +129,8 @@ export default function IncomingRequestScreen() {
       Alert.alert('Error', err?.message || 'Failed to accept job. Please try again.');
     }
   };
+
+  const debouncedAccept = useDebounceCallback(handleAccept, 1200);
 
   const handleDecline = () => {
     if (sound) {
@@ -343,7 +346,7 @@ export default function IncomingRequestScreen() {
 
         <TouchableOpacity
           style={[styles.acceptButton, isAccepting && styles.acceptButtonDisabled]}
-          onPress={handleAccept}
+          onPress={debouncedAccept}
           disabled={isAccepting}
           activeOpacity={0.8}
         >

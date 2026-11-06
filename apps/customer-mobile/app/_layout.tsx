@@ -6,6 +6,7 @@ import { supabase } from '../services/supabase';
 import { initCrashReporting } from '../services/crashReporting';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { OfflineBanner } from '../components/OfflineBanner';
+import { UpdateRequiredModal } from '../components/UpdateRequiredModal';
 
 // Initialize global uncaught crash telemetry
 initCrashReporting();
@@ -64,6 +65,7 @@ export default function RootLayout() {
     <ErrorBoundary>
       <StatusBar style="light" />
       <OfflineBanner />
+      <UpdateRequiredModal />
       <Stack
         screenOptions={{
           headerStyle: {

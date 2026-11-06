@@ -24,6 +24,7 @@ import { LanguageToggle } from '../../../components/LanguageToggle';
 import { OfflineBanner } from '../../../components/OfflineBanner';
 import { VoiceNoteRecorder } from '../../../components/VoiceNoteRecorder';
 import { TractorSelectorModal } from '../../../components/TractorSelectorModal';
+import { useDebounceCallback } from '../../../utils/debounce';
 import { APP_NAME, t } from '@tractor-repair/shared';
 
 const CATEGORIES = [
@@ -358,6 +359,8 @@ export default function NewRequestScreen() {
     }
   };
 
+  const debouncedSubmit = useDebounceCallback(handleSubmit, 1200);
+
   const getCategoryTitle = (cat: typeof CATEGORIES[0]) => {
     switch (language) {
       case 'te': return cat.nameTE;
@@ -590,7 +593,7 @@ export default function NewRequestScreen() {
             (!selectedTractor || !selectedCategory || !location || isLoading) &&
               styles.submitButtonDisabled,
           ]}
-          onPress={handleSubmit}
+          onPress={debouncedSubmit}
           disabled={!selectedTractor || !selectedCategory || !location || isLoading}
           accessibilityRole="button"
           accessibilityLabel="Request nearest mechanic"
