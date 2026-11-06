@@ -9,7 +9,9 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
+  BackHandler,
 } from 'react-native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../../store/authStore';
 import { useJobStore } from '../../../store/jobStore';
@@ -38,6 +40,16 @@ export default function EarningsScreen() {
       loadMechanicData(mechanic.id);
     }
   }, [mechanic?.id]);
+
+  // Pressing back on Earnings tab returns to Partner Home
+  useEffect(() => {
+    const onBackPress = () => {
+      router.replace('/mechanic/(tabs)/home');
+      return true;
+    };
+    const backSub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSub.remove();
+  }, []);
 
   const totalLifetimeEarnings = balance?.total_earned
     ? Number(balance.total_earned)

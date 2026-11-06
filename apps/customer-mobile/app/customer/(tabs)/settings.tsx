@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ScrollView,
   Alert,
   Platform,
+  BackHandler,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -126,6 +127,16 @@ const SETTINGS_TRANSLATIONS: Record<
 export default function CustomerSettingsScreen() {
   const { profile, user, language, reset } = useAuthStore();
   const t = SETTINGS_TRANSLATIONS[language] || SETTINGS_TRANSLATIONS.en;
+
+  // Pressing back on Settings returns to Customer Home
+  useEffect(() => {
+    const onBackPress = () => {
+      router.replace('/customer/(tabs)/home');
+      return true;
+    };
+    const backSub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSub.remove();
+  }, []);
 
   const activeLangObj = LANGUAGES.find((l) => l.code === language) || LANGUAGES[0];
 

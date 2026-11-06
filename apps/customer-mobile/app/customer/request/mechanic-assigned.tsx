@@ -26,7 +26,7 @@ import { APP_NAME, t } from '@tractor-repair/shared';
 
 export default function MechanicAssignedScreen() {
   const { language } = useAuthStore();
-  const { currentJob, currentRequest, setCurrentJob, setQuote, setFinishCode, updateJobStatus } = useRepairStore();
+  const { currentJob, currentRequest, setCurrentJob, setCurrentRequest, reset, setQuote, setFinishCode, updateJobStatus } = useRepairStore();
   const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
@@ -388,52 +388,91 @@ export default function MechanicAssignedScreen() {
   };
 
   const handleConfirmCancel = async () => {
-    if (!currentJob?.id) return;
     setIsCancelling(true);
     try {
-      const reason = cancelReason.trim() || 'Customer cancelled before arrival';
+      let jobId = currentJob?.id;
+      let reqId = currentJob?.requestId || currentRequest?.id;
 
-      // 1. Attempt atomic RPC cancellation
-      const { error: rpcError } = await supabase.rpc('cancel_job_by_customer', {
-        p_job_id: currentJob.id,
-        p_reason: reason,
-      });
-
-      if (rpcError) {
-        // Fallback to direct table updates if RPC is unavailable
-        await supabase
-          .from('jobs')
-          .update({
-            status: 'cancelled',
-            cancelled_at: new Date().toISOString(),
-            cancellation_reason: reason,
-          })
-          .eq('id', currentJob.id);
-
-        if (currentJob.requestId) {
-          await supabase
-            .from('repair_requests')
-            .update({ status: 'cancelled' })
-            .eq('id', currentJob.requestId);
-        }
-
+      if (!jobId) {
         const { data: authData } = await supabase.auth.getUser();
         if (authData?.user) {
           const { data: cust } = await supabase
             .from('customers')
-            .select('id, cancellation_count')
+            .select('id')
             .eq('profile_id', authData.user.id)
-            .single();
+            .maybeSingle();
 
           if (cust) {
-            await supabase
-              .from('customers')
-              .update({ cancellation_count: (cust.cancellation_count || 0) + 1 })
-              .eq('id', cust.id);
+            const { data: foundJob } = await supabase
+              .from('jobs')
+              .select('id, request_id')
+              .eq('customer_id', cust.id)
+              .in('status', ['assigned', 'quote_submitted', 'quote_approved', 'repair_in_progress'])
+              .order('assigned_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (foundJob) {
+              jobId = foundJob.id;
+              if (foundJob.request_id) reqId = foundJob.request_id;
+            }
           }
         }
       }
 
+      const reason = cancelReason.trim() || 'Customer cancelled before arrival';
+
+      if (jobId) {
+        // 1. Attempt atomic RPC cancellation
+        const { error: rpcError } = await supabase.rpc('cancel_job_by_customer', {
+          p_job_id: jobId,
+          p_reason: reason,
+        });
+
+        if (rpcError) {
+          // Fallback to direct table updates if RPC is unavailable
+          await supabase
+            .from('jobs')
+            .update({
+              status: 'cancelled',
+              cancelled_at: new Date().toISOString(),
+              cancellation_reason: reason,
+            })
+            .eq('id', jobId);
+
+          if (reqId) {
+            await supabase
+              .from('repair_requests')
+              .update({ status: 'cancelled' })
+              .eq('id', reqId);
+          }
+
+          const { data: authData } = await supabase.auth.getUser();
+          if (authData?.user) {
+            const { data: cust } = await supabase
+              .from('customers')
+              .select('id, cancellation_count')
+              .eq('profile_id', authData.user.id)
+              .single();
+
+            if (cust) {
+              await supabase
+                .from('customers')
+                .update({ cancellation_count: (cust.cancellation_count || 0) + 1 })
+                .eq('id', cust.id);
+            }
+          }
+        }
+      } else if (reqId) {
+        await supabase
+          .from('repair_requests')
+          .update({ status: 'cancelled' })
+          .eq('id', reqId);
+      }
+
+      setCurrentJob(null);
+      setCurrentRequest(null);
+      useRepairStore.getState().reset();
       setIsCancelModalOpen(false);
       Alert.alert(
         'Request Cancelled',

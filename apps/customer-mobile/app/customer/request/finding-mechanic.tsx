@@ -360,13 +360,53 @@ export default function FindingMechanicScreen() {
           text: 'Cancel Request',
           style: 'destructive',
           onPress: async () => {
-            if (currentRequest?.id) {
-              await supabase
-                .from('repair_requests')
-                .update({ status: 'cancelled' })
-                .eq('id', currentRequest.id);
+            try {
+              let reqId = currentRequest?.id;
+              if (!reqId) {
+                const { data: authData } = await supabase.auth.getUser();
+                if (authData?.user) {
+                  const { data: cust } = await supabase
+                    .from('customers')
+                    .select('id')
+                    .eq('profile_id', authData.user.id)
+                    .maybeSingle();
+                  if (cust) {
+                    const { data: r } = await supabase
+                      .from('repair_requests')
+                      .select('id')
+                      .eq('customer_id', cust.id)
+                      .in('status', ['requested', 'matching', 'assigned'])
+                      .order('created_at', { ascending: false })
+                      .limit(1)
+                      .maybeSingle();
+                    reqId = r?.id;
+                  }
+                }
+              }
+
+              if (reqId) {
+                await supabase
+                  .from('repair_requests')
+                  .update({ status: 'cancelled' })
+                  .eq('id', reqId);
+
+                await supabase
+                  .from('jobs')
+                  .update({
+                    status: 'cancelled',
+                    cancelled_at: new Date().toISOString(),
+                    cancellation_reason: 'Cancelled by customer during matching',
+                  })
+                  .eq('request_id', reqId);
+              }
+            } catch (err) {
+              console.warn('Error during cancel:', err);
+            } finally {
+              setCurrentJob(null);
+              setCurrentRequest(null);
+              useRepairStore.getState().reset();
+              router.replace('/customer/(tabs)/home');
             }
-            router.replace('/customer/(tabs)/home');
           },
         },
       ]

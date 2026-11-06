@@ -254,57 +254,65 @@ export default function IncomingRequestScreen() {
             </Text>
           </View>
 
-          <Text style={styles.problemDesc}>"{incomingRequest.reportedProblem}"</Text>
+          {incomingRequest.reportedProblem?.trim() ? (
+            <Text style={styles.problemDesc}>"{incomingRequest.reportedProblem.trim()}"</Text>
+          ) : (
+            <Text style={[styles.problemDesc, { fontStyle: 'italic', color: '#94A3B8' }]}>
+              On-site inspection requested (No written notes provided)
+            </Text>
+          )}
         </View>
 
-        {/* Voice Note Player */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="mic" size={20} color="#00C853" />
-            <Text style={styles.cardTitle}>FARMER VOICE NOTE</Text>
-          </View>
-
-          <View style={styles.voicePlayer}>
-            <TouchableOpacity
-              style={styles.playButton}
-              onPress={handleToggleVoiceNote}
-            >
-              <Ionicons
-                name={isPlayingVoice ? 'pause' : 'play'}
-                size={24}
-                color="#FFFFFF"
-              />
-            </TouchableOpacity>
-
-            <View style={styles.waveformContainer}>
-              <View style={styles.waveformBars}>
-                {[40, 70, 30, 90, 60, 100, 50, 80, 45, 95, 60, 30, 85, 40].map(
-                  (h, i) => (
-                    <View
-                      key={i}
-                      style={[
-                        styles.waveBar,
-                        {
-                          height: h * 0.35,
-                          backgroundColor:
-                            i * 2 <= voicePositionSec ? '#00C853' : '#CBD5E0',
-                        },
-                      ]}
-                    />
-                  )
-                )}
-              </View>
-              <Text style={styles.voiceDuration}>
-                {isPlayingVoice
-                  ? `00:${voicePositionSec < 10 ? '0' : ''}${voicePositionSec}`
-                  : `00:${incomingRequest.voiceNoteDurationSec || 24}s`}
-              </Text>
+        {/* Voice Note Player (Render ONLY if farmer recorded a voice note) */}
+        {!!incomingRequest.voiceNoteUrl && (
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="mic" size={20} color="#00C853" />
+              <Text style={styles.cardTitle}>FARMER VOICE NOTE</Text>
             </View>
+
+            <View style={styles.voicePlayer}>
+              <TouchableOpacity
+                style={styles.playButton}
+                onPress={handleToggleVoiceNote}
+              >
+                <Ionicons
+                  name={isPlayingVoice ? 'pause' : 'play'}
+                  size={24}
+                  color="#FFFFFF"
+                />
+              </TouchableOpacity>
+
+              <View style={styles.waveformContainer}>
+                <View style={styles.waveformBars}>
+                  {[40, 70, 30, 90, 60, 100, 50, 80, 45, 95, 60, 30, 85, 40].map(
+                    (h, i) => (
+                      <View
+                        key={i}
+                        style={[
+                          styles.waveBar,
+                          {
+                            height: h * 0.35,
+                            backgroundColor:
+                              i * 2 <= voicePositionSec ? '#00C853' : '#CBD5E0',
+                          },
+                        ]}
+                      />
+                    )
+                  )}
+                </View>
+                <Text style={styles.voiceDuration}>
+                  {isPlayingVoice
+                    ? `00:${voicePositionSec < 10 ? '0' : ''}${voicePositionSec}`
+                    : `00:${incomingRequest.voiceNoteDurationSec || 15}s`}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.voiceHint}>
+              Listen to hear abnormal sounds, knocks, or warning lights described.
+            </Text>
           </View>
-          <Text style={styles.voiceHint}>
-            Listen to hear abnormal sounds, knocks, or warning lights described.
-          </Text>
-        </View>
+        )}
 
         {/* Breakdown Photos */}
         {incomingRequest.photoUrls.length > 0 && (

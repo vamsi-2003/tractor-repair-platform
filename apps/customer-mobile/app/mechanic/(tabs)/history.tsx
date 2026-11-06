@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   FlatList,
+  BackHandler,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +24,16 @@ export default function HistoryScreen() {
       loadMechanicData(mechanic.id);
     }
   }, [mechanic?.id]);
+
+  // Pressing back on Jobs tab returns to Partner Home
+  useEffect(() => {
+    const onBackPress = () => {
+      router.replace('/mechanic/(tabs)/home');
+      return true;
+    };
+    const backSub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSub.remove();
+  }, []);
 
   const filteredJobs = completedJobs.filter((job) => {
     if (filter === 'completed') return true;

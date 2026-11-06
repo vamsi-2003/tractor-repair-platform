@@ -146,6 +146,7 @@ export default function ActiveJobScreen() {
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isFinishing, setIsFinishing] = useState(false);
 
   // Auto-hydrate active job if missing
   useEffect(() => {
@@ -441,20 +442,33 @@ export default function ActiveJobScreen() {
   };
 
   const handleMechanicCancelJob = async () => {
-    if (!cancelReason.trim()) {
-      Alert.alert('Reason Required', 'Please provide a brief reason for cancelling.');
-      return;
-    }
-
     setIsCancelling(true);
     try {
+      const reason = cancelReason.trim() || 'Mechanic unable to service request';
       const { error } = await supabase.rpc('cancel_job_by_mechanic', {
         p_job_id: activeJob.id,
-        p_reason: cancelReason.trim(),
+        p_reason: reason,
       });
 
-      if (error) throw error;
+      if (error) {
+        await supabase
+          .from('jobs')
+          .update({
+            status: 'cancelled',
+            cancelled_at: new Date().toISOString(),
+            cancellation_reason: reason,
+          })
+          .eq('id', activeJob.id);
 
+        if (activeJob.requestId) {
+          await supabase
+            .from('repair_requests')
+            .update({ status: 'cancelled' })
+            .eq('id', activeJob.requestId);
+        }
+      }
+
+      setActiveJob(null);
       setIsCancelModalOpen(false);
       Alert.alert(
         'Job Cancelled',
@@ -472,8 +486,6 @@ export default function ActiveJobScreen() {
       setIsCancelling(false);
     }
   };
-
-  const [isFinishing, setIsFinishing] = useState(false);
 
   const handleProceedToFinish = async () => {
     if (!activeJob?.id) return;
@@ -615,7 +627,13 @@ export default function ActiveJobScreen() {
             <Text style={styles.faultCategory}>
               System: {activeJob.problem.categoryName}
             </Text>
-            <Text style={styles.faultDesc}>"{activeJob.problem.description || 'Diagnosis required'}"</Text>
+            {activeJob.problem.description?.trim() ? (
+              <Text style={styles.faultDesc}>"{activeJob.problem.description.trim()}"</Text>
+            ) : (
+              <Text style={[styles.faultDesc, { fontStyle: 'italic', color: '#94A3B8' }]}>
+                On-site inspection requested (No written notes provided)
+              </Text>
+            )}
           </View>
         </View>
 

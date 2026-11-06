@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Image,
   Alert,
   Platform,
+  BackHandler,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -40,6 +41,16 @@ export default function MechanicSettingsConsoleScreen() {
   } = useAuthStore();
 
   const activeLangObj = LANGUAGES.find((l) => l.code === language) || LANGUAGES[0];
+
+  // Pressing back on Settings console returns to Partner Home
+  useEffect(() => {
+    const onBackPress = () => {
+      router.replace('/mechanic/(tabs)/home');
+      return true;
+    };
+    const backSub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSub.remove();
+  }, []);
 
   const handleLogout = async () => {
     if (Platform.OS === 'web') {

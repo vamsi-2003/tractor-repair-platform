@@ -7,7 +7,9 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
+  BackHandler,
 } from 'react-native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../services/supabase';
 import { useAuthStore } from '../../../store/authStore';
@@ -63,6 +65,16 @@ export default function HistoryScreen() {
   useEffect(() => {
     fetchHistory();
   }, [user?.id]);
+
+  // Pressing back on History returns to Customer Home
+  useEffect(() => {
+    const onBackPress = () => {
+      router.replace('/customer/(tabs)/home');
+      return true;
+    };
+    const backSub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSub.remove();
+  }, []);
 
   const onRefresh = () => {
     setIsRefreshing(true);

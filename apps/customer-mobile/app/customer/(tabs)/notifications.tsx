@@ -7,7 +7,9 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
+  BackHandler,
 } from 'react-native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../services/supabase';
 import { useAuthStore } from '../../../store/authStore';
@@ -41,6 +43,16 @@ export default function NotificationsScreen() {
   useEffect(() => {
     fetchNotifications();
   }, [user?.id]);
+
+  // Pressing back on Notifications returns to Customer Home
+  useEffect(() => {
+    const onBackPress = () => {
+      router.replace('/customer/(tabs)/home');
+      return true;
+    };
+    const backSub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSub.remove();
+  }, []);
 
   const markAsRead = async (id: string) => {
     await supabase

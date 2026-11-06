@@ -13,6 +13,8 @@ import {
   Animated,
   Easing,
   BackHandler,
+  ToastAndroid,
+  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,10 +29,19 @@ import { OfflineBanner } from '../../../components/OfflineBanner';
 export default function HomeScreen() {
   const { profile, mechanic, isOnline, setIsOnline, serviceRadiusKm, setMechanic } = useAuthStore();
 
-  // Prevent Android back button from popping back to customer stack
+  // Double back to exit guard on root Mechanic Home
+  const lastBackPress = useRef(0);
   useEffect(() => {
     const onBackPress = () => {
-      BackHandler.exitApp();
+      const now = Date.now();
+      if (now - lastBackPress.current < 2000) {
+        BackHandler.exitApp();
+        return true;
+      }
+      lastBackPress.current = now;
+      if (Platform.OS === 'android') {
+        ToastAndroid.show('Press back again to exit Tractor Seva', ToastAndroid.SHORT);
+      }
       return true;
     };
     const backSub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
@@ -229,8 +240,9 @@ export default function HomeScreen() {
     syncActiveJob();
     const jobInterval = setInterval(syncActiveJob, 2500);
 
+    const channelKey = `mech-active-job-${mechanic?.id || 'anon'}-${Date.now()}`;
     const jobChannel = supabase
-      .channel('public:jobs:active')
+      .channel(channelKey)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'jobs' },
@@ -401,9 +413,10 @@ export default function HomeScreen() {
     // Poll every 3 seconds while online & idle
     const interval = setInterval(checkIncoming, 3000);
 
-    // Listen to real-time changes
+    // Listen to real-time changes with unique channel key
+    const incomingChannelKey = `mech-incoming-${Date.now()}-${Math.random().toString(36).substring(7)}`;
     const channel = supabase
-      .channel('mechanic-incoming-requests')
+      .channel(incomingChannelKey)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'repair_requests' },

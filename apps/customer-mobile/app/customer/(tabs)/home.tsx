@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,9 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  BackHandler,
+  ToastAndroid,
+  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -45,6 +48,25 @@ export default function CustomerHomeScreen() {
   const [activeRequest, setActiveRequest] = useState<RequestItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isTractorModalOpen, setIsTractorModalOpen] = useState(false);
+
+  // Double-back to exit on root Customer Home
+  const lastBackPress = useRef(0);
+  useEffect(() => {
+    const onBackPress = () => {
+      const now = Date.now();
+      if (now - lastBackPress.current < 2000) {
+        BackHandler.exitApp();
+        return true;
+      }
+      lastBackPress.current = now;
+      if (Platform.OS === 'android') {
+        ToastAndroid.show('Press back again to exit Tractor Seva', ToastAndroid.SHORT);
+      }
+      return true;
+    };
+    const backSub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSub.remove();
+  }, []);
 
   useEffect(() => {
     loadHomeData();
