@@ -7,9 +7,11 @@ import { initCrashReporting } from '../services/crashReporting';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { UpdateRequiredModal } from '../components/UpdateRequiredModal';
+import { setupNotificationChannels } from '../services/notifications';
 
-// Initialize global uncaught crash telemetry
+// Initialize global uncaught crash telemetry & notification channels
 initCrashReporting();
+setupNotificationChannels();
 
 export default function RootLayout() {
   const { session, profile, selectedRole, isLoading, setSession, setLoading, fetchUserProfile } = useAuthStore();

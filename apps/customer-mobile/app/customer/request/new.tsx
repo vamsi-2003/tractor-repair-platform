@@ -401,7 +401,11 @@ export default function NewRequestScreen() {
         </View>
       </View>
 
-      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Saved Tractor Selector Card */}
         <View style={styles.sectionCard}>
           <Text style={styles.sectionLabel}>{t('tractorMakeModel', language).toUpperCase()}</Text>
