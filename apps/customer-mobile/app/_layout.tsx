@@ -3,6 +3,11 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../services/supabase';
+import { initCrashReporting } from '../services/crashReporting';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+
+// Initialize global uncaught crash telemetry
+initCrashReporting();
 
 export default function RootLayout() {
   const { session, profile, selectedRole, isLoading, setSession, setLoading, fetchUserProfile } = useAuthStore();
@@ -55,7 +60,7 @@ export default function RootLayout() {
   }, [segments, session, profile, selectedRole, isLoading]);
 
   return (
-    <>
+    <ErrorBoundary>
       <StatusBar style="light" />
       <Stack
         screenOptions={{
@@ -189,6 +194,6 @@ export default function RootLayout() {
           }}
         />
       </Stack>
-    </>
+    </ErrorBoundary>
   );
 }

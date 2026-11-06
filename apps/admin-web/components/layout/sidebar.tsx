@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   LogOut,
   Tractor,
+  Bug,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { signOutAdmin } from '@/lib/actions/auth';
@@ -62,6 +63,11 @@ const NAV_ITEMS = [
     name: 'Audit Logs',
     href: '/audit',
     icon: ShieldCheck,
+  },
+  {
+    name: 'App Crashes & Health',
+    href: '/crashes',
+    icon: Bug,
   },
 ];
 
