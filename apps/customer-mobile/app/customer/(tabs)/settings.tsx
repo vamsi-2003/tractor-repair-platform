@@ -260,6 +260,26 @@ export default function CustomerSettingsScreen() {
           </View>
           <Ionicons name="chevron-forward" size={18} color="#90A4AE" />
         </TouchableOpacity>
+
+        <View style={styles.divider} />
+
+        {/* Delete Account Row (Google Play Policy §4.8) */}
+        <TouchableOpacity
+          style={styles.navRow}
+          onPress={() => router.push('/account-delete')}
+          activeOpacity={0.7}
+        >
+          <View style={styles.navLeft}>
+            <View style={[styles.navIconCircle, { backgroundColor: '#FFEBEE' }]}>
+              <Ionicons name="trash-outline" size={20} color="#D32F2F" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.navTitle, { color: '#D32F2F' }]}>Delete Account</Text>
+              <Text style={styles.navSub}>Erase personal profile & machinery data</Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#D32F2F" />
+        </TouchableOpacity>
       </View>
 
       {/* ─── Sign Out Button ─── */}

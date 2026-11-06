@@ -296,6 +296,26 @@ export default function MechanicSettingsConsoleScreen() {
           </View>
           <Ionicons name="chevron-forward" size={18} color="#90A4AE" />
         </TouchableOpacity>
+
+        <View style={styles.divider} />
+
+        {/* 8. Delete Account (Google Play Policy §4.8) */}
+        <TouchableOpacity
+          style={styles.navRow}
+          onPress={() => router.push('/account-delete')}
+          activeOpacity={0.7}
+        >
+          <View style={styles.navLeft}>
+            <View style={[styles.navIconCircle, { backgroundColor: '#3B181E' }]}>
+              <Ionicons name="trash-outline" size={20} color="#FF6B6B" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.navTitle, { color: '#FF6B6B' }]}>Delete Account</Text>
+              <Text style={styles.navSub}>Deactivate partner profile & erase personal data</Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#FF6B6B" />
+        </TouchableOpacity>
       </View>
 
       {/* ─── Sign Out Button ─── */}

@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   StatusBar,
   Platform,
+  Linking,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -207,6 +208,56 @@ export default function AboutScreen() {
           </Text>
         </View>
 
+        {/* 6. Legal, Privacy & Google Play Compliance */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="shield-checkmark-outline" size={20} color={BRAND_COLOR} />
+            <Text style={styles.sectionTitle}>
+              {isTelugu ? 'చట్టపరమైన సమాచారం & గోప్యత' : isHindi ? 'कानूनी और गोपनीयता नीतियां' : 'Legal & Data Privacy'}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.legalRow}
+            onPress={() => Linking.openURL('http://localhost:3000/privacy').catch(() => {})}
+            activeOpacity={0.7}
+          >
+            <View style={styles.legalRowLeft}>
+              <Ionicons name="document-text-outline" size={18} color={BRAND_COLOR} />
+              <Text style={styles.legalRowText}>Privacy Policy (Google Play §4.8)</Text>
+            </View>
+            <Ionicons name="open-outline" size={16} color="#90A4AE" />
+          </TouchableOpacity>
+
+          <View style={{ height: 1, backgroundColor: '#F0F4F5', marginVertical: 8 }} />
+
+          <TouchableOpacity
+            style={styles.legalRow}
+            onPress={() => Linking.openURL('http://localhost:3000/terms').catch(() => {})}
+            activeOpacity={0.7}
+          >
+            <View style={styles.legalRowLeft}>
+              <Ionicons name="receipt-outline" size={18} color={BRAND_COLOR} />
+              <Text style={styles.legalRowText}>Terms of Service</Text>
+            </View>
+            <Ionicons name="open-outline" size={16} color="#90A4AE" />
+          </TouchableOpacity>
+
+          <View style={{ height: 1, backgroundColor: '#F0F4F5', marginVertical: 8 }} />
+
+          <TouchableOpacity
+            style={styles.legalRow}
+            onPress={() => router.push('/account-delete')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.legalRowLeft}>
+              <Ionicons name="trash-outline" size={18} color="#D32F2F" />
+              <Text style={[styles.legalRowText, { color: '#D32F2F' }]}>Delete Account & Data</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#D32F2F" />
+          </TouchableOpacity>
+        </View>
+
         {/* App Footer */}
         <View style={styles.footerWrap}>
           <Text style={styles.footerBrand}>Tractor Seva • v1.2.0</Text>
@@ -397,5 +448,21 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#90A4AE',
     marginTop: 4,
+  },
+  legalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+  },
+  legalRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  legalRowText: {
+    fontSize: 14,
+    color: '#37474F',
+    fontWeight: '600',
   },
 });

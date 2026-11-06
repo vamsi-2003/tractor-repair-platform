@@ -65,9 +65,12 @@ export async function updateSession(request: NextRequest) {
 
   const isLoginPage = request.nextUrl.pathname.startsWith('/login');
   const isApiRoute = request.nextUrl.pathname.startsWith('/api');
+  const isPublicLegalPage =
+    request.nextUrl.pathname.startsWith('/privacy') ||
+    request.nextUrl.pathname.startsWith('/terms');
 
-  // Allow API routes through or handle auth separately
-  if (isApiRoute) {
+  // Allow API routes and public legal pages (Privacy Policy, Terms of Service)
+  if (isApiRoute || isPublicLegalPage) {
     return response;
   }
 

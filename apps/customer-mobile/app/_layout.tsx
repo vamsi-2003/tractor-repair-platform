@@ -99,6 +99,10 @@ export default function RootLayout() {
           name="about"
           options={{ title: 'About Tractor Seva', headerShown: false }}
         />
+        <Stack.Screen
+          name="account-delete"
+          options={{ title: 'Delete Account', headerShown: false }}
+        />
 
         {/* Customer Stack */}
         <Stack.Screen
