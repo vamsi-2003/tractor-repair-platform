@@ -1,67 +1,132 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useAuthStore } from '../store/authStore';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Platform, Animated } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Network from 'expo-network';
 
 export function OfflineBanner() {
   const [isOffline, setIsOffline] = useState(false);
-  const { language } = useAuthStore();
+  const [showRestored, setShowRestored] = useState(false);
+  const [slideAnim] = useState(new Animated.Value(-60));
+
+  const checkNetwork = async () => {
+    try {
+      if (Platform.OS === 'web') {
+        const online = typeof navigator !== 'undefined' ? navigator.onLine : true;
+        handleStateChange(!online);
+        return;
+      }
+
+      const state = await Network.getNetworkStateAsync();
+      const offline = !state.isConnected || state.isInternetReachable === false;
+      handleStateChange(offline);
+    } catch {
+      // If network check fails, don't block user
+    }
+  };
+
+  const handleStateChange = (offline: boolean) => {
+    if (offline) {
+      setIsOffline(true);
+      setShowRestored(false);
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      if (isOffline) {
+        // Was offline and now restored
+        setIsOffline(false);
+        setShowRestored(true);
+        setTimeout(() => {
+          Animated.timing(slideAnim, {
+            toValue: -60,
+            duration: 300,
+            useNativeDriver: true,
+          }).start(() => setShowRestored(false));
+        }, 3000);
+      }
+    }
+  };
 
   useEffect(() => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const handleOnline = () => setIsOffline(false);
-      const handleOffline = () => setIsOffline(true);
+    checkNetwork();
 
-      setIsOffline(!window.navigator.onLine);
+    // Periodic check every 5 seconds (vital for rural 2G packet loss)
+    const interval = setInterval(checkNetwork, 5000);
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const handleOnline = () => handleStateChange(false);
+      const handleOffline = () => handleStateChange(true);
       window.addEventListener('online', handleOnline);
       window.addEventListener('offline', handleOffline);
-
       return () => {
+        clearInterval(interval);
         window.removeEventListener('online', handleOnline);
         window.removeEventListener('offline', handleOffline);
       };
     }
-  }, []);
 
-  if (!isOffline) return null;
+    return () => clearInterval(interval);
+  }, [isOffline]);
 
-  const getOfflineText = () => {
-    switch (language) {
-      case 'te':
-        return 'ఇంటర్నెట్ లేదు · నెట్‌వర్క్ రాగానే అప్‌డేట్ అవుతుంది';
-      case 'hi':
-        return 'कोई इंटरनेट नहीं · नेटवर्क आने पर अपडेट होगा';
-      case 'kn':
-        return 'ಇಂಟರ್ನೆಟ್ ಸಂಪರ್ಕವಿಲ್ಲ · ನೆಟ್‌ವರ್ಕ್ ಬಂದಾಗ ಅಪ್‌ಡೇಟ್ ಆಗುತ್ತದೆ';
-      case 'ta':
-        return 'இணைய இணைப்பு இல்லை · நெட்வொர்க் வந்ததும் புதுப்பிக்கப்படும்';
-      default:
-        return 'No Internet Connection · Updates will sync once connected';
-    }
-  };
+  if (!isOffline && !showRestored) {
+    return null;
+  }
+
+  const isWarning = isOffline;
 
   return (
-    <View style={styles.banner}>
-      <Ionicons name="cloud-offline" size={16} color="#FFFFFF" />
-      <Text style={styles.text}>{getOfflineText()}</Text>
-    </View>
+    <Animated.View
+      style={[
+        styles.banner,
+        isWarning ? styles.bannerOffline : styles.bannerOnline,
+        { transform: [{ translateY: slideAnim }] },
+      ]}
+    >
+      <MaterialCommunityIcons
+        name={isWarning ? 'wifi-off' : 'wifi-check'}
+        size={18}
+        color="#FFFFFF"
+        style={{ marginRight: 8 }}
+      />
+      <Text style={styles.bannerText}>
+        {isWarning
+          ? 'Poor or No Connection • Reconnecting to Tractor Seva...'
+          : 'Back Online • Connected to Tractor Seva'}
+      </Text>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   banner: {
-    backgroundColor: '#E65100', // High-visibility Amber/Orange
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 9999,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 16,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
   },
-  text: {
+  bannerOffline: {
+    backgroundColor: '#C62828', // Strong Crimson Red
+  },
+  bannerOnline: {
+    backgroundColor: '#2E7D32', // Emerald Forest Green
+  },
+  bannerText: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
-    textAlign: 'center',
+    letterSpacing: 0.2,
   },
 });

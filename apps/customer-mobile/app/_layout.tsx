@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/authStore';
 import { supabase } from '../services/supabase';
 import { initCrashReporting } from '../services/crashReporting';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import { OfflineBanner } from '../components/OfflineBanner';
 
 // Initialize global uncaught crash telemetry
 initCrashReporting();
@@ -62,6 +63,7 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <StatusBar style="light" />
+      <OfflineBanner />
       <Stack
         screenOptions={{
           headerStyle: {
