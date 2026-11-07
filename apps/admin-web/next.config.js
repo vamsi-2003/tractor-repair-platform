@@ -3,6 +3,7 @@ const path = require('path');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   transpilePackages: ['@tractor-repair/shared'],
   webpack: (config, { isServer }) => {
     const pagesDir = path.join(__dirname, '.next', 'server', 'pages');

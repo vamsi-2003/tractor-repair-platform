@@ -249,13 +249,28 @@ export default function NewRequestScreen() {
 
       // Resolve problem category ID
       const categoryObj = CATEGORIES.find((c) => c.id === selectedCategory);
-      const { data: category } = await supabase
-        .from('problem_categories')
-        .select('id')
-        .ilike('name_en', `%${selectedCategory === 'engine' ? 'engine' : selectedCategory === 'hydraulics' ? 'hydraulic' : selectedCategory === 'clutch_gearbox' ? 'clutch' : selectedCategory === 'tyres' ? 'tyre' : selectedCategory === 'electrical' ? 'electric' : 'other'}%`)
-        .maybeSingle();
-
-      const categoryId = category?.id || 'c1000000-0000-0000-0000-000000000001';
+      const DEFAULT_CATEGORY_MAP: Record<string, string> = {
+        engine: 'c1000000-0000-0000-0000-000000000001',
+        hydraulics: 'c1000000-0000-0000-0000-000000000002',
+        clutch_gearbox: 'c1000000-0000-0000-0000-000000000003',
+        brakes: 'c1000000-0000-0000-0000-000000000003',
+        tyres: 'c1000000-0000-0000-0000-000000000004',
+        electrical: 'c1000000-0000-0000-0000-000000000005',
+        other: 'c1000000-0000-0000-0000-000000000006',
+      };
+      let categoryId = selectedCategory ? (DEFAULT_CATEGORY_MAP[selectedCategory] || 'c1000000-0000-0000-0000-000000000006') : 'c1000000-0000-0000-0000-000000000006';
+      try {
+        const { data: category } = await supabase
+          .from('problem_categories')
+          .select('id')
+          .ilike('name_en', `%${selectedCategory === 'engine' ? 'engine' : selectedCategory === 'hydraulics' ? 'hydraulic' : selectedCategory === 'clutch_gearbox' ? 'clutch' : selectedCategory === 'tyres' ? 'tyre' : selectedCategory === 'electrical' ? 'electric' : 'other'}%`)
+          .maybeSingle();
+        if (category?.id) {
+          categoryId = category.id;
+        }
+      } catch (catErr) {
+        console.warn('Network issue fetching category ID, using resilient mapped fallback:', catErr);
+      }
 
       // Upload voice note if present
       let uploadedVoiceNoteUrl: string | null = null;
@@ -338,7 +353,7 @@ export default function NewRequestScreen() {
         tractorMake: selectedTractor.make,
         tractorModel: selectedTractor.model,
         categoryId: selectedCategory,
-        categoryName: categoryObj?.name || 'Tractor Issue',
+        categoryName: (language === 'te' ? categoryObj?.nameTE : categoryObj?.name) || categoryObj?.name || 'Tractor Issue',
         description: description.trim(),
         voiceNoteUri,
         mediaUris,

@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../services/supabase';
 import { useAuthStore } from '../store/authStore';
+import { getStorageItem, setStorageItem } from '../services/offlineStorage';
 
 export interface TractorItem {
   id: string;
@@ -53,6 +54,20 @@ export function TractorSelectorModal({
 
   const loadTractors = async () => {
     if (!user?.id) return;
+    const cacheKey = `user_tractors_${user.id}`;
+    // Load from cache first for offline resilience
+    try {
+      const cached = await getStorageItem(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setTractors(parsed);
+        }
+      }
+    } catch {
+      // Ignore cache read error
+    }
+
     setIsLoading(true);
     try {
       const { data: customer } = await supabase
@@ -70,10 +85,11 @@ export function TractorSelectorModal({
 
         if (!error && data) {
           setTractors(data);
+          setStorageItem(cacheKey, JSON.stringify(data)).catch(() => {});
         }
       }
     } catch (e) {
-      console.warn('Failed to load tractors:', e);
+      console.warn('Failed to load tractors (using cache if available):', e);
     } finally {
       setIsLoading(false);
     }
@@ -123,7 +139,9 @@ export function TractorSelectorModal({
       if (insertErr) throw insertErr;
 
       if (inserted) {
-        setTractors([inserted, ...tractors]);
+        const updated = [inserted, ...tractors];
+        setTractors(updated);
+        setStorageItem(`user_tractors_${user!.id}`, JSON.stringify(updated)).catch(() => {});
         onSelectTractor(inserted);
         setIsAddingNew(false);
         setNewMake('');

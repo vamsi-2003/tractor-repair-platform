@@ -21,9 +21,12 @@ import { supabase } from '../../../services/supabase';
 import { useJobStore } from '../../../store/jobStore';
 import { useRealtimeSync } from '../../../hooks/useRealtimeSync';
 import { formatCurrency, formatPhone } from '@tractor-repair/shared';
+import * as Location from 'expo-location';
+import { useAuthStore } from '../../../store/authStore';
 import { notifyMechanicArrived, notifyQuoteReady } from '../../../services/smsAlerts';
 
 export default function ActiveJobScreen() {
+  const { user } = useAuthStore();
   const {
     activeJob,
     setActiveJob,
@@ -42,6 +45,77 @@ export default function ActiveJobScreen() {
     const backSubscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => backSubscription.remove();
   }, []);
+
+  // Continuous GPS Location Broadcasting while on active job
+  useEffect(() => {
+    let watcher: Location.LocationSubscription | null = null;
+    let isMounted = true;
+
+    async function startLocationBroadcast() {
+      if (!user?.id) return;
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return;
+
+        // Fetch mechanic record ID
+        const { data: mech } = await supabase
+          .from('mechanics')
+          .select('id')
+          .eq('profile_id', user.id)
+          .maybeSingle();
+
+        if (mech?.id && isMounted) {
+          // Send initial position immediately
+          try {
+            const currentLoc = await Location.getCurrentPositionAsync({
+              accuracy: Location.Accuracy.Balanced,
+            });
+            await supabase.rpc('update_mechanic_location', {
+              p_mechanic_id: mech.id,
+              p_latitude: currentLoc.coords.latitude,
+              p_longitude: currentLoc.coords.longitude,
+              p_is_online: true,
+            });
+          } catch {
+            // initial location failure tolerated
+          }
+
+          // Watch position continuously as mechanic travels
+          watcher = await Location.watchPositionAsync(
+            {
+              accuracy: Location.Accuracy.High,
+              timeInterval: 10000, // 10s intervals
+              distanceInterval: 15, // 15m delta
+            },
+            async (loc) => {
+              if (!isMounted) return;
+              try {
+                await supabase.rpc('update_mechanic_location', {
+                  p_mechanic_id: mech.id,
+                  p_latitude: loc.coords.latitude,
+                  p_longitude: loc.coords.longitude,
+                  p_is_online: true,
+                });
+              } catch (watchErr) {
+                console.warn('GPS broadcast error:', watchErr);
+              }
+            }
+          );
+        }
+      } catch (locErr) {
+        console.warn('Failed to start location broadcast:', locErr);
+      }
+    }
+
+    startLocationBroadcast();
+
+    return () => {
+      isMounted = false;
+      if (watcher) {
+        watcher.remove();
+      }
+    };
+  }, [user?.id]);
 
   // Realtime subscription for customer quote approval/decline and status updates
   useRealtimeSync({

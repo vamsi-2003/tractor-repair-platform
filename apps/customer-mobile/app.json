@@ -2,7 +2,7 @@
   "expo": {
     "name": "Tractor Seva",
     "slug": "tractor-repair",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "tractor-repair",
@@ -24,7 +24,7 @@
       }
     },
     "android": {
-      "versionCode": 6,
+      "versionCode": 7,
       "allowBackup": false,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
