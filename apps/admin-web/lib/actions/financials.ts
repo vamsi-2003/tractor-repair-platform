@@ -46,14 +46,14 @@ export async function getFinancialSummary() {
   // 3. Mechanic Balances Aggregation
   const { data: balances } = await adminClient
     .from('mechanic_balances')
-    .select('total_earnings, platform_fee_due, total_settled, balance_due');
+    .select('total_earned, total_commission_due, total_settled, balance_due');
 
   const totalPendingPayout = (balances || []).reduce(
     (sum, b) => sum + (Number(b.balance_due) || 0),
     0
   );
   const totalPlatformFeesDue = (balances || []).reduce(
-    (sum, b) => sum + (Number(b.platform_fee_due) || 0),
+    (sum, b) => sum + (Number(b.total_commission_due) || 0),
     0
   );
 
@@ -201,11 +201,10 @@ export async function processBatchSettlements(
       .insert({
         mechanic_id: item.mechanicId,
         amount: item.amount,
-        status: 'completed',
-        payout_channel: item.payoutChannel || 'upi',
+        settlement_status: 'completed',
         reference_id: refId,
         settled_at: new Date().toISOString(),
-        notes: 'Batch platform payout processed by admin',
+        notes: `Batch platform payout via ${item.payoutChannel || 'upi'} processed by admin`,
       })
       .select()
       .single();
@@ -230,7 +229,6 @@ export async function processBatchSettlements(
           .update({
             total_settled: newSettled,
             balance_due: newBalanceDue,
-            last_settlement_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
           .eq('mechanic_id', item.mechanicId);
@@ -285,14 +283,14 @@ export async function recordMechanicFeePayment(
     return { success: false, error: 'Mechanic balance record not found.' };
   }
 
-  const currentFeeDue = Number(curBal.platform_fee_due) || 0;
+  const currentFeeDue = Number(curBal.total_commission_due) || 0;
   const newFeeDue = Math.max(0, currentFeeDue - amount);
 
   // 2. Update mechanic balance
   const { error: updateErr } = await adminClient
     .from('mechanic_balances')
     .update({
-      platform_fee_due: newFeeDue,
+      total_commission_due: newFeeDue,
       updated_at: new Date().toISOString(),
     })
     .eq('mechanic_id', mechanicId);
@@ -306,11 +304,10 @@ export async function recordMechanicFeePayment(
   await adminClient.from('settlements').insert({
     mechanic_id: mechanicId,
     amount,
-    status: 'completed',
-    payout_channel: method,
+    settlement_status: 'completed',
     reference_id: refId,
     settled_at: new Date().toISOString(),
-    notes: `Fee payment received by platform from mechanic. ${referenceNotes || ''}`.trim(),
+    notes: `Fee payment received by platform from mechanic via ${method}. ${referenceNotes || ''}`.trim(),
   });
 
   // 4. Audit log
@@ -320,9 +317,9 @@ export async function recordMechanicFeePayment(
       action: 'mechanic_fee_payment_received',
       entity_type: 'mechanic_balance',
       entity_id: curBal.id,
-      old_values: { platform_fee_due: currentFeeDue },
+      old_values: { total_commission_due: currentFeeDue },
       new_values: {
-        platform_fee_due: newFeeDue,
+        total_commission_due: newFeeDue,
         amount_paid: amount,
         payment_method: method,
         notes: referenceNotes,

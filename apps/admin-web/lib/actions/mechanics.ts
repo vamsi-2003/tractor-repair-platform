@@ -92,9 +92,7 @@ export async function getMechanicById(id: string) {
       documents:mechanic_documents (
         id,
         document_type,
-        document_number,
         file_path,
-        file_url,
         status,
         rejection_reason,
         verified_by,
@@ -103,11 +101,11 @@ export async function getMechanicById(id: string) {
       ),
       balance:mechanic_balances (
         id,
-        total_earnings,
-        platform_fee_due,
+        total_earned,
+        total_commission_due,
         total_settled,
         balance_due,
-        last_settlement_at
+        updated_at
       )
     `
     )
@@ -122,7 +120,7 @@ export async function getMechanicById(id: string) {
   // Generate private signed URLs for all documents
   const docsWithSignedUrls = await Promise.all(
     (mechanic.documents || []).map(async (doc: any) => {
-      let signedUrl = doc.file_url || null;
+      let signedUrl: string | null = null;
       if (doc.file_path) {
         try {
           const { data: signData } = await adminClient.storage
@@ -156,7 +154,10 @@ export async function getMechanicById(id: string) {
         description,
         tractor:tractors (make, model)
       ),
-      customer:profiles!jobs_customer_id_fkey (full_name, phone)
+      customer:customers (
+        id,
+        profile:profiles (full_name, phone)
+      )
     `
     )
     .eq('mechanic_id', id)

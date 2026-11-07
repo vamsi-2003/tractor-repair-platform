@@ -253,7 +253,7 @@ export function FinancialsView({
                 <tbody className="divide-y divide-slate-100">
                   {mechanicBalances.map((b) => {
                     const balanceDue = Number(b.balance_due) || 0;
-                    const feeDue = Number(b.platform_fee_due) || 0;
+                    const feeDue = Number(b.total_commission_due ?? b.platform_fee_due) || 0;
                     const isSelected = selectedMechanics.includes(b.mechanic_id);
 
                     return (
@@ -297,11 +297,11 @@ export function FinancialsView({
                         </td>
 
                         <td className="px-6 py-4 font-medium text-slate-800">
-                          {formatCurrency(b.total_earnings || 0)}
+                          {formatCurrency(b.total_earned ?? b.total_earnings ?? 0)}
                         </td>
 
                         <td className="px-6 py-4 text-amber-700 font-medium">
-                          {formatCurrency(b.platform_fee_due || 0)}
+                          {formatCurrency(b.total_commission_due ?? b.platform_fee_due ?? 0)}
                         </td>
 
                         <td className="px-6 py-4 text-slate-500">

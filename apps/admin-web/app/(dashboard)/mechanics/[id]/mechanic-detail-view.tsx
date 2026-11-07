@@ -546,13 +546,13 @@ export function MechanicDetailView({ mechanic }: { mechanic: any }) {
                   <div className="flex justify-between">
                     <span className="text-slate-500">Total Lifetime Earned:</span>
                     <span className="font-semibold text-slate-900">
-                      ₹{mechanic.balance.total_earnings || 0}
+                      ₹{mechanic.balance.total_earned ?? mechanic.balance.total_earnings ?? 0}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Platform Fees Due:</span>
                     <span className="font-semibold text-amber-700">
-                      ₹{mechanic.balance.platform_fee_due || 0}
+                      ₹{mechanic.balance.total_commission_due ?? mechanic.balance.platform_fee_due ?? 0}
                     </span>
                   </div>
                   <div className="flex justify-between pt-1 border-t border-slate-100">
