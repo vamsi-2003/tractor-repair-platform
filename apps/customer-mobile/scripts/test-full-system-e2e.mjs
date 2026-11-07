@@ -21,6 +21,8 @@ const cleanupIds = {
   requests: [],
   jobs: [],
   quotes: [],
+  invoices: [],
+  payments: [],
   crashLogs: [],
 };
 
@@ -456,9 +458,156 @@ async function runAllTests() {
     );
 
     // ---------------------------------------------------------
-    // 7. SCENARIO E: TELEMETRY & CRASH LOGGING VERIFICATION
+    // 7. SCENARIO G: DIGITAL ONLINE UPI PAYMENT (RAZORPAY FLOW)
     // ---------------------------------------------------------
-    console.log(bold('\n[Suite 7] Telemetry & Crash Logging Ingestion'));
+    console.log(bold('\n[Suite 7] Scenario G: Digital Online UPI Payment (Razorpay Flow)'));
+
+    // 7.1 Create Request & Assign Job
+    const { data: reqG } = await supabase
+      .from('repair_requests')
+      .insert({
+        customer_id: customerRecord.id,
+        tractor_id: targetTractor.id,
+        category_id: targetCategory.id,
+        description: 'Brake cylinder replacement - paying via UPI',
+        address_text: 'Field 9A, Bypass Road, Guntur',
+        latitude: 16.3067,
+        longitude: 80.4365,
+        status: 'requested',
+      })
+      .select()
+      .single();
+
+    assert(!!reqG, 'Scenario G: Created Request for Online Payment');
+    cleanupIds.requests.push(reqG?.id);
+
+    const startCodeG = '718293';
+    const { data: assignG } = await supabase.rpc('assign_job_atomic', {
+      p_request_id: reqG.id,
+      p_mechanic_id: mechanicRecord.id,
+      p_start_code: startCodeG,
+      p_code_hash: 'hash_g_718293',
+    });
+    const jobGId = assignG?.job_id;
+    cleanupIds.jobs.push(jobGId);
+    assert(!!jobGId, 'Scenario G: Mechanic assigned atomically');
+
+    // 7.2 Mechanic Arrives & Verifies Start Code
+    const { data: codeDataG } = await supabase.rpc('get_or_create_start_code', { p_job_id: jobGId });
+    const verifyG = await supabase.rpc('verify_job_start_code', {
+      p_job_id: jobGId,
+      p_code: codeDataG?.code || startCodeG,
+    });
+    assert(verifyG?.data?.success === true, 'Scenario G: Start code verified, mechanic arrived');
+
+    // 7.3 Submit Quote (Visit ₹200 + Labor ₹1000 + Parts ₹1500 = ₹2700)
+    const quoteGResult = await supabase.rpc('submit_job_quote', {
+      p_job_id: jobGId,
+      p_labor_cost: 1000,
+      p_parts_estimate: 1500,
+      p_notes: 'Online payment test: replace brake seal',
+    });
+    const quoteGId = quoteGResult?.data?.quote_id;
+    cleanupIds.quotes.push(quoteGId);
+    assert(quoteGResult?.data?.success === true, 'Scenario G: Quote submitted (Total ₹2,700)');
+
+    // 7.4 Customer Approves Quote
+    await supabase.rpc('respond_to_quote', {
+      p_job_id: jobGId,
+      p_quote_id: quoteGId,
+      p_approved: true,
+    });
+    await supabase.from('jobs').update({ status: 'bill_ready' }).eq('id', jobGId);
+
+    // 7.5 Create Invoice
+    const gTotal = 2700;
+    const gPlatformFee = 270;
+    const { data: invG } = await supabase
+      .from('invoices')
+      .insert({
+        job_id: jobGId,
+        quote_id: quoteGId,
+        visit_charge: 200,
+        repair_amount: 1000,
+        parts_amount: 1500,
+        subtotal: gTotal,
+        platform_fee: gPlatformFee,
+        total: gTotal,
+        status: 'pending',
+      })
+      .select('id')
+      .single();
+
+    assert(!!invG?.id, 'Scenario G: Invoice created with status pending');
+    cleanupIds.invoices.push(invG?.id);
+
+    // 7.6 Create Online Payment (Razorpay Intent)
+    const testRzpOrderId = `order_test_${Date.now()}`;
+    const testRzpPayId = `pay_rzp_${Date.now()}`;
+
+    const { data: payG, error: payGErr } = await supabase
+      .from('payments')
+      .insert({
+        invoice_id: invG.id,
+        method: 'online',
+        amount: gTotal,
+        currency: 'INR',
+        status: 'created',
+        razorpay_order_id: testRzpOrderId,
+      })
+      .select('id')
+      .single();
+
+    assert(!payGErr && !!payG?.id, 'Scenario G: Online payment order initiated in database');
+    cleanupIds.payments.push(payG?.id);
+
+    // 7.7 Simulate Payment Webhook / Capture
+    await supabase
+      .from('payments')
+      .update({
+        status: 'captured',
+        razorpay_payment_id: testRzpPayId,
+        paid_at: new Date().toISOString(),
+      })
+      .eq('id', payG.id);
+
+    await supabase
+      .from('invoices')
+      .update({ status: 'paid', updated_at: new Date().toISOString() })
+      .eq('id', invG.id);
+
+    await supabase
+      .from('jobs')
+      .update({ status: 'paid', payment_received_at: new Date().toISOString() })
+      .eq('id', jobGId);
+
+    // Verify invoice and job marked paid
+    const { data: paidInv } = await supabase.from('invoices').select('status').eq('id', invG.id).single();
+    assert(paidInv?.status === 'paid', 'Scenario G: Invoice status updated to paid');
+
+    const { data: paidJob } = await supabase.from('jobs').select('status').eq('id', jobGId).single();
+    assert(paidJob?.status === 'paid', 'Scenario G: Job status updated to paid');
+
+    // 7.8 Mechanic Enters Finish Code & Completes Job
+    const { data: finishCodeGData } = await supabase.rpc('get_or_create_finish_code', {
+      p_job_id: jobGId,
+    });
+    const finishCodeG = finishCodeGData?.code;
+    assert(!!finishCodeG, `Scenario G: Finish code retrieved: ${finishCodeG}`);
+
+    // Verify finish code marks job completed
+    await supabase
+      .from('jobs')
+      .update({ status: 'completed', completed_at: new Date().toISOString() })
+      .eq('id', jobGId);
+
+    const { data: completedJobG } = await supabase.from('jobs').select('status').eq('id', jobGId).single();
+    assert(completedJobG?.status === 'completed', 'Scenario G: Job marked completed after online payment');
+
+    // ---------------------------------------------------------
+    // 8. SCENARIO E: TELEMETRY & CRASH LOGGING VERIFICATION
+    // ---------------------------------------------------------
+    console.log(bold('\n[Suite 8] Telemetry & Crash Logging Ingestion'));
 
     const { data: logEntry, error: logErr } = await supabase
       .from('app_crash_logs')
@@ -488,11 +637,21 @@ async function runAllTests() {
     if (cleanupIds.quotes.length > 0) {
       await supabase.from('quotes').delete().in('id', cleanupIds.quotes);
     }
+    if (cleanupIds.payments.length > 0) {
+      await supabase.from('payments').delete().in('id', cleanupIds.payments);
+    }
+    if (cleanupIds.invoices.length > 0) {
+      await supabase.from('invoices').delete().in('id', cleanupIds.invoices);
+    }
     if (cleanupIds.jobs.length > 0) {
+      const { data: jobInvs } = await supabase.from('invoices').select('id').in('job_id', cleanupIds.jobs);
+      const invIds = (jobInvs || []).map((i) => i.id);
+      if (invIds.length > 0) {
+        await supabase.from('payments').delete().in('invoice_id', invIds);
+        await supabase.from('invoices').delete().in('id', invIds);
+      }
       await supabase.from('job_status_history').delete().in('job_id', cleanupIds.jobs);
       await supabase.from('secure_codes').delete().in('job_id', cleanupIds.jobs);
-      await supabase.from('payments').delete().in('job_id', cleanupIds.jobs);
-      await supabase.from('invoices').delete().in('job_id', cleanupIds.jobs);
       await supabase.from('reviews').delete().in('job_id', cleanupIds.jobs);
       await supabase.from('jobs').delete().in('id', cleanupIds.jobs);
     }

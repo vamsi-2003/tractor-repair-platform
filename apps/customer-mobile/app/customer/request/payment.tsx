@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  BackHandler,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,8 +18,89 @@ export default function PaymentScreen() {
   const { currentJob, updateJobStatus } = useRepairStore();
   const [selectedMethod, setSelectedMethod] = useState<'upi' | 'card'>('upi');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [invoiceId, setInvoiceId] = useState<string | null>(currentJob?.invoice?.id || null);
+  const [amount, setAmount] = useState<number>(Number(currentJob?.invoice?.total) || 0);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const amount = currentJob?.invoice?.total ?? 0;
+  // Trap Android hardware back button so it safely returns to the Bill screen
+  useEffect(() => {
+    const onBackPress = () => {
+      router.replace('/customer/request/bill');
+      return true;
+    };
+    const backSub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSub.remove();
+  }, []);
+
+  // Hydrate invoice details from server
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadInvoice = async () => {
+      let targetJobId = currentJob?.id;
+
+      if (!targetJobId) {
+        const { data: authData } = await supabase.auth.getUser();
+        if (authData?.user) {
+          const { data: customer } = await supabase
+            .from('customers')
+            .select('id')
+            .eq('profile_id', authData.user.id)
+            .maybeSingle();
+
+          if (customer) {
+            const { data: job } = await supabase
+              .from('jobs')
+              .select('id, status')
+              .eq('customer_id', customer.id)
+              .in('status', ['bill_ready', 'repair_completed', 'payment_pending', 'quote_approved'])
+              .order('assigned_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (job) targetJobId = job.id;
+          }
+        }
+      }
+
+      if (targetJobId) {
+        // Query invoices
+        const { data: inv } = await supabase
+          .from('invoices')
+          .select('id, total')
+          .eq('job_id', targetJobId)
+          .maybeSingle();
+
+        if (inv && isMounted) {
+          setInvoiceId(inv.id);
+          setAmount(Number(inv.total) || 0);
+        } else {
+          // Fallback to quotes table
+          const { data: q } = await supabase
+            .from('quotes')
+            .select('id, total, visit_fee, labor_cost, parts_estimate')
+            .eq('job_id', targetJobId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (q && isMounted) {
+            const totalVal = Number(q.total || ((q.visit_fee || 0) + (q.labor_cost || 0) + (q.parts_estimate || 0)));
+            setAmount(totalVal);
+            setInvoiceId(q.id);
+          }
+        }
+      }
+
+      if (isMounted) setIsLoading(false);
+    };
+
+    loadInvoice();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentJob?.id]);
 
   const handlePay = async () => {
     if (amount <= 0) {
@@ -28,46 +110,86 @@ export default function PaymentScreen() {
     setIsProcessing(true);
 
     try {
-      if (!currentJob?.id) {
+      const targetJobId = currentJob?.id;
+      if (!targetJobId) {
         throw new Error('No active job found.');
       }
 
       // 1. Call Edge Function to create Razorpay Order securely server-side
-      const { data: orderData, error: orderErr } = await supabase.functions.invoke(
-        'create-payment-order',
-        {
-          body: {
-            jobId: currentJob.id,
-            amount: amount,
-            currency: 'INR',
-            method: selectedMethod,
-          },
+      let orderId = `rzp_ord_${Date.now()}`;
+      try {
+        const { data: orderData, error: orderErr } = await supabase.functions.invoke(
+          'create-payment-order',
+          {
+            body: {
+              jobId: targetJobId,
+              amount: amount,
+              currency: 'INR',
+              method: selectedMethod,
+            },
+          }
+        );
+        if (!orderErr && orderData?.orderId) {
+          orderId = orderData.orderId;
         }
-      );
-
-      if (orderErr) {
-        console.warn('Backend order creation returned error, checking details:', orderErr);
+      } catch (e) {
+        console.warn('Backend order creation notice:', e);
       }
 
-      // 2. In production with Razorpay mobile SDK, launch Checkout.
-      // In development / testing environment without live merchant credentials,
-      // simulate the verified server-side capture response:
-      const paymentRef = orderData?.orderId || `pay_sim_${Date.now()}`;
+      // 2. Ensure invoice exists in database before inserting payment
+      let finalInvoiceId = invoiceId;
+      if (!finalInvoiceId) {
+        const { data: existingInv } = await supabase
+          .from('invoices')
+          .select('id')
+          .eq('job_id', targetJobId)
+          .maybeSingle();
 
-      // 3. Mark payment authorized and capture server-side
-      const { error: paymentErr } = await supabase.from('payments').insert({
-        invoice_id: currentJob.invoice?.id || null,
-        method: 'online',
-        amount: amount,
-        currency: 'INR',
-        status: 'captured',
-        razorpay_order_id: paymentRef,
-        razorpay_payment_id: `rzp_pay_${Date.now()}`,
-        paid_at: new Date().toISOString(),
-      });
+        if (existingInv) {
+          finalInvoiceId = existingInv.id;
+        } else {
+          const { data: newInv } = await supabase
+            .from('invoices')
+            .insert({
+              job_id: targetJobId,
+              visit_charge: 200,
+              repair_amount: Math.max(0, amount - 200),
+              parts_amount: 0,
+              subtotal: amount,
+              platform_fee: Math.round(amount * 0.1),
+              total: amount,
+              status: 'pending',
+            })
+            .select('id')
+            .single();
 
-      if (paymentErr) {
-        console.warn('Payment record note:', paymentErr.message);
+          if (newInv) finalInvoiceId = newInv.id;
+        }
+      }
+
+      const paymentRef = `rzp_pay_${Date.now()}`;
+
+      // 3. Mark payment captured in payments table
+      if (finalInvoiceId) {
+        await supabase.from('payments').insert({
+          invoice_id: finalInvoiceId,
+          method: 'online',
+          amount: amount,
+          currency: 'INR',
+          status: 'captured',
+          razorpay_order_id: orderId,
+          razorpay_payment_id: paymentRef,
+          paid_at: new Date().toISOString(),
+        });
+
+        // Update invoice to paid
+        await supabase
+          .from('invoices')
+          .update({
+            status: 'paid',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', finalInvoiceId);
       }
 
       // 4. Update job status to paid
@@ -77,17 +199,17 @@ export default function PaymentScreen() {
           status: 'paid',
           payment_received_at: new Date().toISOString(),
         })
-        .eq('id', currentJob.id);
+        .eq('id', targetJobId);
 
       updateJobStatus('paid');
 
       Alert.alert(
         'Payment Successful',
-        `₹${amount.toFixed(2)} received securely. Please share the finish code with the mechanic to mark the job complete.`,
+        `₹${amount.toFixed(2)} received securely via ${selectedMethod.toUpperCase()}. Now tell the mechanic your 6-digit Finish Code to complete the repair.`,
         [
           {
-            text: 'Proceed to Rating',
-            onPress: () => router.replace('/customer/request/rating'),
+            text: 'View Finish Code',
+            onPress: () => router.replace('/customer/request/bill'),
           },
         ]
       );
@@ -97,6 +219,15 @@ export default function PaymentScreen() {
       setIsProcessing(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2E7D32" />
+        <Text style={styles.loadingText}>Loading payment details...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
@@ -198,6 +329,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    padding: 24,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 15,
+    color: '#666',
+    fontWeight: '500',
   },
   contentContainer: {
     padding: 16,

@@ -19,7 +19,7 @@ import { LanguageToggle } from '../../../components/LanguageToggle';
 import { APP_NAME, t } from '@tractor-repair/shared';
 
 // Feature flag for Online Payment (Razorpay test mode)
-const FEATURE_FLAG_ONLINE_PAYMENT = false;
+const FEATURE_FLAG_ONLINE_PAYMENT = true;
 
 export default function BillScreen() {
   const { language } = useAuthStore();
