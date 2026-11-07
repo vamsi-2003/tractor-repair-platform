@@ -247,10 +247,49 @@ Scenario 4: Cancellation & Block Governance
 
 ## 7. Verification Checklist
 
-- [x] **Monorepo Typecheck**: `pnpm -r run typecheck` passes with zero errors across all projects.
-- [x] **Android Hermes Export**: `npx expo export --platform android` exports 1,119 modules cleanly.
-- [x] **Database Migrations**: Migrations `00005` and `00006` applied to live Supabase DB.
-- [x] **Database Cleanup**: All old test jobs and requests deleted; DB starts at a clean zero-job baseline.
-- [x] **Admin Web Security**: Service role keys restricted to server actions; Next.js middleware guards admin portal.
-- [x] **Version Visibility**: `AppName • v1.0.0 (Build 1)` displayed across login and settings screens.
-- [x] **Test Accounts Seeded**: Pre-loaded customer with tractor and approved mechanic with 6 certified skills.
+- [x] **Monorepo Typecheck**: `pnpm -r run typecheck` passes with zero errors across all packages (`shared`, `admin-web`, `customer-mobile`).
+- [x] **Android Build 6 EAS Verification**: User physically tested and verified all mobile bug fixes on real hardware (Back button guard, Sub-tab home return, Request cancellation, Finish Done flow).
+- [x] **Priority 3 (Admin Web Portal)**: Live Next.js 14 console running on port 3000. Real-time telemetry, mechanic KYC inspections, dispatch history, invoice ledger, crash reporting, and settlement controls active.
+- [x] **Priority 1 (Digital Payments & UPI)**: Online Razorpay order creation, payment capture webhooks, cash collection ledger, and invoice auto-hydration live and verified.
+- [x] **Priority 2 (SMS & WhatsApp Alerts)**: Fast2SMS & Twilio WhatsApp Edge Function `send-sms-alert` deployed with client `smsAlerts.ts` triggers for job assignment, arrival, quotes, and completion.
+- [x] **Priority 4 (Production Release Prep)**: EAS build production profile configured for Android App Bundle (`.aab`), permissions audited, privacy policy & terms live at `/privacy` and `/terms`.
+- [x] **Comprehensive E2E Test Suite**: `apps/customer-mobile/scripts/test-full-system-e2e.mjs` executed: **52 PASSED, 0 FAILED** across 10 functional suites.
+
+---
+
+## 8. Prioritized Roadmap Execution Summary (3 -> 1 -> 2 -> 4)
+
+### Priority 3: Admin Web Operations Portal (`apps/admin-web`)
+- **Port**: `http://localhost:3000` (Daemon active)
+- **Super Admin Auth**: `admin@tractorapp.com` / `Admin@123456`
+- **Dashboard Highlights**:
+  - Live Gross GMV and platform commission tracking.
+  - Mechanic KYC Identity Document Inspection with secure 1-hour presigned Supabase Storage URLs.
+  - Dispute Resolution console with full messaging history.
+  - App Crashes & Telemetry monitoring uncaught exceptions with React render stack traces.
+  - Aligned `mechanic_balances` (`total_earned`, `total_commission_due`, `balance_due`) and `settlements` (`settlement_status`) with live Postgres schema.
+
+### Priority 1: Digital Payments & UPI Flow
+- **Providers**: Razorpay Payments API (Order generation, HMAC-SHA256 signature verification) & Direct Cash Ledger.
+- **Edge Functions**: `create-payment-order` and `payment-webhook`.
+- **Customer UI**: Dual options in `apps/customer-mobile/app/customer/request/bill.tsx` & `payment.tsx`:
+  1. *Pay Online (UPI / GPay / PhonePe / Card)* with instant receipt and finish code.
+  2. *Pay Cash to Mechanic* with cash collection intent recorded in ledger.
+
+### Priority 2: SMS & WhatsApp Alerts Telephony
+- **Providers**: Fast2SMS (Domestic Indian SMS) + Twilio (WhatsApp & International SMS) with resilient development simulator.
+- **Triggers**:
+  - `notifyMechanicAssigned`: Customer receives mechanic name, phone, Start Code, tractor model, and ETA.
+  - `notifyMechanicArrived`: Customer alerted immediately upon Start Code verification.
+  - `notifyQuoteReady`: Customer alerted with itemized total repair estimate.
+  - `notifyJobCompleted`: Customer receives final completion confirmation with amount and payment method.
+
+### Priority 4: Production Release Preparation
+- **Build Artifacts**:
+  - Production Google Play Store Bundle (`.aab` format) in `eas.json` (`build.production.android.buildType = "app-bundle"`).
+  - Internal testing APK in `eas.json` (`build.preview.android.buildType = "apk"`).
+- **Compliance & Legal**:
+  - Terms of Service: `http://localhost:3000/terms` (HTTP 200)
+  - Privacy Policy: `http://localhost:3000/privacy` (HTTP 200)
+  - Strict Android permissions audited in `app.json`: Fine Location, Camera, Microphone, Post Notifications.
+
