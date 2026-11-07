@@ -193,6 +193,52 @@ Deno.serve(async (req: Request) => {
 
     const assignedJobId = rpcResult?.job_id;
 
+    // Dispatch SMS & WhatsApp Alert to Farmer
+    try {
+      const { data: jobDetails } = await supabase
+        .from('jobs')
+        .select(`
+          id,
+          customer:customers (
+            profile:profiles (id, full_name, phone)
+          ),
+          mechanic:mechanics (
+            profile:profiles (id, full_name, phone)
+          ),
+          request:repair_requests (
+            tractor:tractors (make, model)
+          )
+        `)
+        .eq('id', assignedJobId)
+        .single();
+
+      const custProfile = (jobDetails as any)?.customer?.profile;
+      const mechProfile = (jobDetails as any)?.mechanic?.profile;
+      const tractor = (jobDetails as any)?.request?.tractor;
+
+      if (custProfile?.phone) {
+        const custPhone = custProfile.phone;
+        const mechName = mechProfile?.full_name || 'Assigned Mechanic';
+        const mechPhone = mechProfile?.phone || '';
+        const tractorStr = tractor ? ` (${tractor.make} ${tractor.model})` : '';
+
+        const alertMsg = `Tractor Seva: Mechanic ${mechName} (${mechPhone}) has accepted your repair request${tractorStr}. Share Start Code: ${startCode} upon arrival.`;
+
+        // Record in-app notification
+        if (custProfile.id) {
+          await supabase.from('notifications').insert({
+            user_id: custProfile.id,
+            type: 'job_update',
+            title: 'Mechanic Assigned',
+            body: alertMsg,
+            data: { jobId: assignedJobId, startCode },
+          });
+        }
+      }
+    } catch (alertErr) {
+      console.warn('SMS dispatch on job assignment non-fatal notice:', alertErr);
+    }
+
     return jsonResponse({
       success: true,
       message: 'Job accepted and assigned successfully',

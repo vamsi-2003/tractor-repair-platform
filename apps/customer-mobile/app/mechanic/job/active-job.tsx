@@ -21,6 +21,7 @@ import { supabase } from '../../../services/supabase';
 import { useJobStore } from '../../../store/jobStore';
 import { useRealtimeSync } from '../../../hooks/useRealtimeSync';
 import { formatCurrency, formatPhone } from '@tractor-repair/shared';
+import { notifyMechanicArrived, notifyQuoteReady } from '../../../services/smsAlerts';
 
 export default function ActiveJobScreen() {
   const {
@@ -383,6 +384,13 @@ export default function ActiveJobScreen() {
 
     if (result.success) {
       Alert.alert('Start Code Verified ✓', 'You are now authorized to inspect the tractor and prepare a quote.');
+      const custPhone = activeJob?.customer?.phone;
+      if (custPhone) {
+        notifyMechanicArrived({
+          customerPhone: custPhone,
+          mechanicName: 'Your Mechanic',
+        }).catch(() => {});
+      }
     } else {
       Alert.alert('Verification Failed', result.message);
     }
@@ -407,6 +415,14 @@ export default function ActiveJobScreen() {
           activeJob.customer.name
         }'s phone for approval.`
       );
+      const custPhone = activeJob?.customer?.phone;
+      if (custPhone) {
+        notifyQuoteReady({
+          customerPhone: custPhone,
+          totalAmount: vFee + lCost + pEst,
+          mechanicName: 'Your Mechanic',
+        }).catch(() => {});
+      }
     } catch (err: any) {
       Alert.alert('Quote Error', err.message || 'Could not send quote to customer.');
     } finally {

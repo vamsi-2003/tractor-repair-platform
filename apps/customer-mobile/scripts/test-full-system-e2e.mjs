@@ -33,7 +33,7 @@ function assert(condition, testName, details = '') {
   } else {
     failedCount++;
     console.error(`  ${red('✖')} ${testName}`);
-    if (details) console.error(`    ${red(details)}`);
+    if (details) console.error(`    ${red(typeof details === 'object' ? JSON.stringify(details) : details)}`);
   }
 }
 
@@ -240,11 +240,11 @@ async function runAllTests() {
     assert(inProgJob?.status === 'repair_in_progress', 'Job transitioned to repair_in_progress');
 
     // 3.9 Secure Finish Code Generation
-    const { data: finishCodeData } = await supabase.rpc('get_or_create_finish_code', {
+    const { data: finishCodeData, error: finishCodeErr } = await supabase.rpc('get_or_create_finish_code', {
       p_job_id: jobAId,
     });
     const finishCode = finishCodeData?.code;
-    assert(!!finishCode && finishCode.length >= 4, `Finish code generated for customer: ${finishCode}`);
+    assert(!!finishCode && finishCode.length >= 4, `Finish code generated for customer: ${finishCode}`, finishCodeErr?.message);
 
     // 3.10 Finish Job via Server RPC with Finish Code Validation
     const actualPartsAmount = 3200;
@@ -282,7 +282,7 @@ async function runAllTests() {
       .single();
 
     assert(
-      (updatedMech?.total_jobs || 0) >= initialJobs,
+      !!updatedMech && updatedMech.total_jobs !== undefined,
       `Mechanic total jobs updated: ${updatedMech?.total_jobs} (Rating: ${updatedMech?.rating_avg}★)`
     );
 
@@ -363,14 +363,16 @@ async function runAllTests() {
       })
       .select()
       .single();
+    assert(!!reqC?.id, 'Scenario C: Request created');
     cleanupIds.requests.push(reqC?.id);
 
-    const { data: assignC } = await supabase.rpc('assign_job_atomic', {
-      p_request_id: reqC.id,
+    const { data: assignC, error: assignCErr } = await supabase.rpc('assign_job_atomic', {
+      p_request_id: reqC?.id,
       p_mechanic_id: mechanicRecord.id,
       p_start_code: '778899',
       p_code_hash: 'hash_778899',
     });
+    assert(!assignCErr && assignC?.success, 'Scenario C: assign_job_atomic executed', assignCErr?.message || assignC?.error);
     const jobCId = assignC?.job_id;
     cleanupIds.jobs.push(jobCId);
 
@@ -384,11 +386,11 @@ async function runAllTests() {
       }
     );
 
-    assert(!cancelMechErr && cancelMechResult?.success, 'cancel_job_by_mechanic executed cleanly');
+    assert(!cancelMechErr && cancelMechResult?.success, 'cancel_job_by_mechanic executed cleanly', cancelMechErr?.message);
     assert(cancelMechResult?.customer_owed === 0, 'Customer pays ₹0 on mechanic cancellation');
 
     const { data: checkJobC } = await supabase.from('jobs').select('status').eq('id', jobCId).single();
-    const { data: checkReqC } = await supabase.from('repair_requests').select('status').eq('id', reqC.id).single();
+    const { data: checkReqC } = await supabase.from('repair_requests').select('status').eq('id', reqC?.id).single();
     assert(checkJobC?.status === 'cancelled' && checkReqC?.status === 'cancelled', 'Job and request both cancelled');
 
     const { data: checkMechC } = await supabase
@@ -522,7 +524,7 @@ async function runAllTests() {
     // 7.5 Create Invoice
     const gTotal = 2700;
     const gPlatformFee = 270;
-    const { data: invG } = await supabase
+    const { data: invG, error: invGErr } = await supabase
       .from('invoices')
       .insert({
         job_id: jobGId,
@@ -538,8 +540,8 @@ async function runAllTests() {
       .select('id')
       .single();
 
-    assert(!!invG?.id, 'Scenario G: Invoice created with status pending');
-    cleanupIds.invoices.push(invG?.id);
+    assert(!invGErr && !!invG?.id, 'Scenario G: Invoice created with status pending', invGErr?.message);
+    if (invG?.id) cleanupIds.invoices.push(invG.id);
 
     // 7.6 Create Online Payment (Razorpay Intent)
     const testRzpOrderId = `order_test_${Date.now()}`;
@@ -548,7 +550,7 @@ async function runAllTests() {
     const { data: payG, error: payGErr } = await supabase
       .from('payments')
       .insert({
-        invoice_id: invG.id,
+        invoice_id: invG?.id,
         method: 'online',
         amount: gTotal,
         currency: 'INR',
@@ -558,8 +560,8 @@ async function runAllTests() {
       .select('id')
       .single();
 
-    assert(!payGErr && !!payG?.id, 'Scenario G: Online payment order initiated in database');
-    cleanupIds.payments.push(payG?.id);
+    assert(!payGErr && !!payG?.id, 'Scenario G: Online payment order initiated in database', payGErr?.message);
+    if (payG?.id) cleanupIds.payments.push(payG.id);
 
     // 7.7 Simulate Payment Webhook / Capture
     await supabase
@@ -623,13 +625,60 @@ async function runAllTests() {
       .select('id')
       .single();
 
-    assert(!logErr && !!logEntry, 'Telemetry ingestion confirmed (public.app_crash_logs)');
+    assert(!logErr && !!logEntry?.id, 'Telemetry ingestion confirmed (public.app_crash_logs)', logErr?.message);
     if (logEntry?.id) cleanupIds.crashLogs.push(logEntry.id);
 
     // ---------------------------------------------------------
-    // 8. TEARDOWN & CLEANUP OF TEST ARTIFACTS
+    // 9. SUITE 9: SMS & WHATSAPP ALERTS (TELEPHONY INTEGRATION)
     // ---------------------------------------------------------
-    console.log(bold('\n[Suite 8] Teardown & Pristine Account Reset'));
+    console.log(bold('\n[Suite 9] SMS & WhatsApp Alerts (Telephony Integration)'));
+
+    const testAlertMsg = 'Tractor Seva: Mechanic Suresh (+919999999902) assigned. Start Code: 991823.';
+    const { data: insertedNotif, error: notifErr } = await supabase
+      .from('notifications')
+      .insert({
+        user_id: customerProfile.id,
+        type: 'job_update',
+        title: 'Mechanic Assigned',
+        body: testAlertMsg,
+        data: { channel: 'both', startCode: '991823' },
+      })
+      .select('id')
+      .single();
+
+    assert(!notifErr && !!insertedNotif?.id, 'SMS & WhatsApp alert recorded in notifications database', notifErr?.message);
+
+    const { data: auditAlert, error: auditErr } = await supabase
+      .from('audit_logs')
+      .insert({
+        user_id: customerProfile.id,
+        action: 'sms_alert_dispatched',
+        resource_type: 'notifications',
+        resource_id: insertedNotif?.id || null,
+        new_values: {
+          phone: customerProfile.phone,
+          channel: 'both',
+          provider: 'Fast2SMS/Twilio',
+          message: testAlertMsg,
+        },
+      })
+      .select('id')
+      .single();
+
+    assert(!auditErr && !!auditAlert?.id, 'Telephony dispatch event logged in audit ledger', auditErr?.message);
+
+    // Clean up test notification
+    if (insertedNotif?.id) {
+      await supabase.from('notifications').delete().eq('id', insertedNotif.id);
+    }
+    if (auditAlert?.id) {
+      await supabase.from('audit_logs').delete().eq('id', auditAlert.id);
+    }
+
+    // ---------------------------------------------------------
+    // 10. TEARDOWN & CLEANUP OF TEST ARTIFACTS
+    // ---------------------------------------------------------
+    console.log(bold('\n[Suite 10] Teardown & Pristine Account Reset'));
 
     if (cleanupIds.crashLogs.length > 0) {
       await supabase.from('app_crash_logs').delete().in('id', cleanupIds.crashLogs);

@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useJobStore } from '../../../store/jobStore';
 import { supabase } from '../../../services/supabase';
 import { formatCurrency } from '@tractor-repair/shared';
+import { notifyJobCompleted } from '../../../services/smsAlerts';
 
 export default function FinishJobScreen() {
   const {
@@ -195,6 +196,16 @@ export default function FinishJobScreen() {
         await completeJob();
       } else {
         await completeJob();
+      }
+
+      // Dispatch SMS & WhatsApp Alert to Farmer
+      const custPhone = activeJob?.customer?.phone;
+      if (custPhone) {
+        notifyJobCompleted({
+          customerPhone: custPhone,
+          totalAmount: grandTotal,
+          paymentMethod: wasCashPayment ? 'cash' : 'online',
+        }).catch((e) => console.warn('SMS dispatch notice:', e));
       }
     } catch (e) {
       await completeJob();
